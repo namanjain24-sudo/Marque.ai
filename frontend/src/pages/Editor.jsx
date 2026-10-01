@@ -1,6 +1,10 @@
-// pages/Editor.jsx — asset editor with live preview, rules check, signal card
+// pages/Editor.jsx — asset editor with live preview, rules check, signal card.
+// Loads the real asset by id from the API (GET /v1/brands/{id}/assets/{assetId}),
+// seeds local edit state from it, and lets the user tweak slots/knobs. The inner
+// component is remounted by key once the asset loads so useState re-seeds cleanly
+// (same pattern as Brand.jsx's BrandEditorInner).
 import { CheckCircle, WarningCircle, XCircle } from "@phosphor-icons/react"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useParams } from "react-router-dom"
 import { AssetPreview } from "../components/AssetPreview"
 import { AutoFixResult } from "../components/AutoFixResult"
@@ -8,18 +12,9 @@ import { Container } from "../components/Container"
 import { Toast, useToast } from "../components/Toast"
 import { useBrand } from "../context/BrandContext"
 import { useAutoFix } from "../hooks/useAutoFix"
+import { api } from "../lib/api"
 import { rasterize } from "../lib/rasterize"
-import campaignData from "../mock/campaign.json"
 import { rulesStatusList } from "../lib/rules"
-
-// Find asset across all campaigns
-function findAsset(id) {
-  for (const c of campaignData.campaigns) {
-    const a = c.assets.find((a) => a.id === id)
-    if (a) return a
-  }
-  return campaignData.campaigns[0].assets[0]
-}
 
 const SIZE_TABS = [
   { label: "4:5", type: "poster" },
@@ -29,21 +24,75 @@ const SIZE_TABS = [
 
 const VARIANT_OPTIONS = ["left", "center", "split"]
 
+// Defaults for an asset that carries no rendered slots/knobs (e.g. an upload).
+const DEFAULT_SLOTS = { headline: "", subline: "", price: "", cta: "", logo: "" }
+const DEFAULT_KNOBS = {
+  density: "balanced",
+  font_style: "display_bold",
+  photo_tone: "warm",
+  accent_usage: 0.6,
+  overlay: 0.4,
+  layout_variant: "left",
+}
+
 const RULE_STATUS_ICON = {
   ok: <CheckCircle size={14} weight="bold" className="text-emerald-700 dark:text-emerald-500" />,
   warn: <WarningCircle size={14} weight="bold" className="text-amber-600 dark:text-amber-400" />,
   error: <XCircle size={14} weight="bold" className="text-red-600 dark:text-red-400" />,
 }
 
+// Outer: resolve the asset from the API by route param, then render the editor.
 export function Editor() {
   const { assetId } = useParams()
   const { brand } = useBrand()
+  const [asset, setAsset] = useState(null)
+  const [loadError, setLoadError] = useState(null)
+
+  useEffect(() => {
+    if (!brand?.id || !assetId) return
+    let cancelled = false
+    setAsset(null)
+    setLoadError(null)
+    api
+      .getAsset(brand.id, assetId)
+      .then((data) => { if (!cancelled) setAsset(data) })
+      .catch((err) => { if (!cancelled) setLoadError(err.message ?? "Could not load this asset.") })
+    return () => { cancelled = true }
+  }, [brand?.id, assetId])
+
+  if (loadError) {
+    return (
+      <div className="py-8">
+        <Container>
+          <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+            {loadError}
+          </p>
+        </Container>
+      </div>
+    )
+  }
+
+  if (!asset) {
+    return (
+      <div className="py-8">
+        <Container>
+          <div className="h-96 animate-pulse border border-zinc-200 dark:border-zinc-800" />
+        </Container>
+      </div>
+    )
+  }
+
+  // Remount on asset id so local edit state re-seeds from the loaded asset.
+  return <EditorInner key={asset.id} asset={asset} />
+}
+
+function EditorInner({ asset: baseAsset }) {
+  const { brand } = useBrand()
   const { toast, showToast, hideToast } = useToast()
 
-  const baseAsset = findAsset(assetId)
-  const [slots, setSlots] = useState({ ...baseAsset.slots })
-  const [knobs, setKnobs] = useState({ ...baseAsset.knobs })
-  const [activeSize, setActiveSize] = useState(baseAsset.type)
+  const [slots, setSlots] = useState({ ...DEFAULT_SLOTS, ...(baseAsset.slots ?? {}) })
+  const [knobs, setKnobs] = useState({ ...DEFAULT_KNOBS, ...(baseAsset.knobs ?? {}) })
+  const [activeSize, setActiveSize] = useState(baseAsset.type === "other" ? "poster" : baseAsset.type)
 
   const previewRef = useRef(null)
   const { run, rounds, running, error, reset } = useAutoFix(brand?.id)
@@ -87,7 +136,10 @@ export function Editor() {
     })
   }
 
-  const rules = rulesStatusList({ slots, knobs, palette: brand.palette, brand })
+  // Brand is normally loaded by the time an asset resolves, but guard anyway so
+  // a null brand never crashes the editor (BrandContext seeds brand as null).
+  const palette = brand?.palette ?? {}
+  const rules = rulesStatusList({ slots, knobs, palette, brand })
 
   return (
     <div className="py-8">
@@ -142,8 +194,8 @@ export function Editor() {
                   type={activeSize}
                   slots={slots}
                   knobs={knobs}
-                  palette={brand.palette}
-                  fonts={brand.fonts}
+                  palette={palette}
+                  fonts={brand?.fonts}
                 />
               </div>
             </div>
@@ -228,7 +280,7 @@ export function Editor() {
             <div className="border border-zinc-200 p-5 dark:border-zinc-800">
               <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Brand palette</h2>
               <div className="mt-3 flex gap-2">
-                {Object.entries(brand.palette).map(([key, hex]) => (
+                {Object.entries(palette).map(([key, hex]) => (
                   <div key={key} className="flex flex-col items-center gap-1">
                     <span className="h-8 w-8 border border-zinc-200 dark:border-zinc-800" style={{ background: hex }} title={hex} />
                     <span className="font-mono text-[9px] text-zinc-400 dark:text-zinc-600">{key}</span>
