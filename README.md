@@ -4,15 +4,78 @@ React + FastAPI + Postgres, fully dockerized.
 
 ## Architecture
 
-System schematic and the agent data path (AskBar goal → `classify_intent` →
-inject Brand Memory → `generate_campaign` → Signal Check → persist). Numbered
-pins `1`–`6` trace the request down the left spine through the layers
-(client → edge → API → engines → persistence).
+The agent data path, top to bottom: AskBar goal → `classify_intent` → inject
+Brand Memory → `generate_campaign` → Signal Check → persist. Numbered steps
+`1`–`6` trace the request through the layers (client → edge → API → engines →
+persistence).
 
-![Marque.ai system architecture](docs/architecture.png)
+```mermaid
+flowchart TB
+    subgraph L1["① CLIENT · browser-as-renderer"]
+        U1["<b>1 · Workspace / 3-col chat</b><br/>AskBar → goal : str(1..500)<br/>chat · results · TracePanel"]
+        U2["AssetPreview (CSS)<br/>palette+fonts ← useBrand()<br/>text = HTML, never image"]
+        U3["rasterize.js<br/>DOM → PNG blob<br/>feeds Signal Check"]
+        U4["Library / Campaigns / Brand<br/>where every AI result lands<br/>signal badges"]
+    end
 
-Source: [`docs/architecture.svg`](docs/architecture.svg) (editable vector) ·
-rendered to [`docs/architecture.png`](docs/architecture.png).
+    subgraph L2["② EDGE · TLS · static · proxy"]
+        N1["<b>2 · Caddy</b><br/>auto Let's Encrypt · TLS<br/>:80 → :443 · only exposed svc"]
+        N2["nginx (frontend)<br/>serve SPA<br/>proxy /api · /media"]
+    end
+
+    subgraph L3["③ API · FastAPI · orchestrator"]
+        R0["<b>3 · POST /agent/run</b><br/>classify_intent(goal)<br/>generate · read · memory · evaluate<br/>inject Brand Memory · do/dont in Python"]
+        R1["brands / memory<br/>PATCH /memory · /rules · identity/apply"]
+        R2["signal-check<br/>multipart · 422/502 typed · never 503"]
+        R3["campaigns / assets<br/>GET lists · detail · library"]
+        M0["Brand Memory · BrandProfile vN<br/>positioning · do/dont · voice"]
+    end
+
+    subgraph L45["④–⑤ ENGINES · reliability pattern · LLM ⇄ heuristic"]
+        E1["<b>4 · asset_gen · F5</b><br/>slots + 6 knobs → 4 assets<br/>dont-guard · Facts Rule<br/>LLM copy ⇄ regex fallback"]
+        E2["<b>5 · vision · F4 ★</b><br/>4 axes · detected vs target<br/>match = 100 − avg|gap| (Python)<br/>LLM ⇄ match=50 heuristic"]
+        E3["brand_dna · F1<br/>positioning · do/dont · tone<br/>LLM ⇄ lookup tables"]
+        E4["identity · F3<br/>5 templates · nearest-2 cosine<br/>deterministic · offline"]
+        E5["audit · F10<br/>2–5 img consistency<br/>LLM ⇄ heuristic score"]
+        SEAM(["RELIABILITY SEAM: Pydantic schema → validate → retry×1 → typed error → heuristic · temp 0 · auto-switch OPENROUTER_API_KEY · 0-credit tests"])
+    end
+
+    subgraph L6["⑥ PERSISTENCE &amp; external"]
+        DB[("<b>6 · Postgres 16</b><br/>brands·campaigns·assets·products·audits·runs<br/>persist run · seeded idempotent @ boot")]
+        X1["OpenRouter (external)<br/>vision + text models · key-gated"]
+        V1["media volume<br/>/media static mount"]
+    end
+
+    U1 ==>|goal| N1
+    N1 --> N2 --> R0
+    R0 ==>|generate| E1
+    R2 -->|rasterized PNG| E2
+    U3 -.->|DOM→PNG| R2
+    R0 --> R1 --> M0
+    R1 -.->|consult| E3
+    R1 -.->|consult| E4
+    R2 --> E5
+    E1 ==> DB
+    E2 -.->|key-gated| X1
+    E3 -.-> X1
+    E5 -.-> X1
+    DB ==>|result| U4
+    U4 -.-> U2 --> U3
+
+    classDef flow fill:#1a1016,stroke:#e7e7ee,stroke-width:2px,color:#e7e7ee;
+    classDef comp fill:#101014,stroke:#6e6e78,color:#cfcfd6;
+    classDef eng fill:#0c1a14,stroke:#9a9aa4,color:#e7e7ee;
+    classDef data fill:#15101f,stroke:#9a9aa4,color:#e7e7ee;
+    classDef seam fill:none,stroke:#4a4a52,stroke-dasharray:3 3,color:#9a9aa4;
+    class U1,N1,R0,E1,E2,DB flow;
+    class U2,U3,U4,N2,R1,R2,R3,M0,E3,E4,E5 comp;
+    class X1,V1 data;
+    class SEAM seam;
+```
+
+A static monochrome schematic version is also kept at
+[`docs/architecture.svg`](docs/architecture.svg) /
+[`docs/architecture.png`](docs/architecture.png).
 
 ## Structure
 
