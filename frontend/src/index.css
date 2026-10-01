@@ -6,6 +6,30 @@
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
 
   --container-page: 1180px;
+
+  /* Landing-page-only warm palette. Scoped deliberately: the rest of the
+     site (Workspace, Campaigns, Library, Audit, Brand, Editor) still uses
+     the zinc/emerald tokens above and is untouched - these only appear
+     inside Home.jsx and its landing-exclusive components, never in the
+     global `body` rule below. */
+  --color-paper: #faf3e0;
+  --color-paper-soft: #f3ead2;
+  --color-card: #fffcf5;
+  --color-ink: #1c1710;
+  --color-ink-dim: #6b6252;
+  --color-ink-faint: #9b9280;
+  --color-line: #e7dcc0;
+  --color-line-soft: #efe6cd;
+  --color-gold: #f2c14e;
+  --color-gold-strong: #e0aa2c;
+  --color-gold-text: #8a620c;
+  --color-gold-text-dark: #e8c066;
+
+  --color-paper-dark: #171209;
+  --color-card-dark: #211a10;
+  --color-ink-inverse: #f6efdc;
+  --color-ink-inverse-dim: #b6ac93;
+  --color-line-dark: #37301f;
 }
 
 @layer base {

@@ -20,12 +20,12 @@ import { Editor } from "./pages/Editor"
 import { Library } from "./pages/Library"
 import { Audit } from "./pages/Audit"
 
-function MarketingLayout({ children }) {
+function MarketingLayout({ children, landing = false }) {
   return (
     <div className="flex min-h-dvh flex-col">
-      <Nav />
+      <Nav landing={landing} />
       <main className="flex-1">{children}</main>
-      <Footer />
+      <Footer landing={landing} />
     </div>
   )
 }
@@ -35,7 +35,7 @@ function App() {
     <BrandProvider>
       <Routes>
         {/* Marketing / public routes */}
-        <Route path="/" element={<MarketingLayout><Home /></MarketingLayout>} />
+        <Route path="/" element={<MarketingLayout landing><Home /></MarketingLayout>} />
         <Route path="/onboard" element={<MarketingLayout><Onboard /></MarketingLayout>} />
         <Route path="/brands" element={<MarketingLayout><Brands /></MarketingLayout>} />
         <Route path="/brand/:id" element={<MarketingLayout><BrandDashboard /></MarketingLayout>} />

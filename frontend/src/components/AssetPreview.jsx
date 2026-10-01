@@ -30,7 +30,12 @@ function fontFamily(style, fonts) {
   return fonts?.heading ? `'${fonts.heading}', sans-serif` : `'Bebas Neue', sans-serif`
 }
 
-export function AssetPreview({ type = 'poster', slots = {}, knobs = {}, palette, fonts, pngUrl }) {
+export function AssetPreview({ type = 'poster', slots, knobs, palette, fonts, pngUrl }) {
+  // Default-arg only kicks in for `undefined`; callers (and the backend) can send
+  // explicit `null` for slots/knobs (e.g. an uploaded asset with no CSS layout),
+  // so coerce here to avoid destructuring null below.
+  slots = slots ?? {}
+  knobs = knobs ?? {}
   useEffect(() => {
     loadBrandFonts(fonts)
   }, [fonts])
