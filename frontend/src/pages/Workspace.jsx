@@ -11,7 +11,7 @@ import { useAgent } from "../hooks/useAgent"
 export function Workspace() {
   const { brand } = useBrand()
   const location = useLocation()
-  const { run, trace, running, campaign, question } = useAgent(brand?.id)
+  const { run, trace, running, campaign, question, messages } = useAgent(brand?.id)
 
   // If we arrived here from the hero chat (navigate with { state: { goal } }),
   // run that goal once the brand is loaded. Guarded so it fires a single time.
@@ -33,8 +33,30 @@ export function Workspace() {
             <p className="font-display text-lg font-bold text-zinc-900 dark:text-zinc-50">Workspace</p>
             <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-500">Give me a goal and I'll plan the campaign.</p>
 
-            {/* Chat history */}
-            <div className="mt-6 space-y-3">
+            {/* Message bubbles */}
+            {messages.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {messages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <p
+                      className={`max-w-[85%] rounded-sm px-3 py-2 text-[13px] leading-relaxed ${
+                        msg.role === 'user'
+                          ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
+                          : 'text-zinc-600 dark:text-zinc-400'
+                      }`}
+                    >
+                      {msg.content}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Campaign chip */}
+            <div className="mt-4 space-y-3">
               {campaign && (
                 <div className="rounded-sm border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
                   <p className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">{campaign.name}</p>
@@ -77,7 +99,12 @@ export function Workspace() {
 
               <div className="grid gap-5 sm:grid-cols-2">
                 {(campaign.assets ?? []).map((asset) => (
-                  <AssetCard key={asset.id} asset={asset} />
+                  <AssetCard
+                    key={asset.id}
+                    asset={asset}
+                    palette={brand?.palette}
+                    fonts={brand?.fonts}
+                  />
                 ))}
               </div>
             </div>
