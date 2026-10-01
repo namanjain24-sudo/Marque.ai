@@ -32,9 +32,28 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    # No host port: Caddy fronts the frontend on the internal network and is the
+    # only service exposed to the internet. Nginx still listens on 80 in-container.
+    expose:
+      - "80"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - frontend
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Persist issued certs + ACME account across restarts so Caddy doesn't
+      # re-request a cert (and risk Let's Encrypt rate limits) on every deploy.
+      - caddy_data:/data
+      - caddy_config:/config
 
 volumes:
   pgdata:
   media:
+  caddy_data:
+  caddy_config:

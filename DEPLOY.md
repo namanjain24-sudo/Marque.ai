@@ -7,7 +7,24 @@ Currently deployed manually on an Azure VM (Ubuntu 24.04, 1 vCPU / 2GB RAM, `ved
 - Docker Engine + compose plugin installed from Docker's official apt repo.
 - 2GB swapfile added (`/swapfile`) — the VM only has 2GB RAM, builds can spike memory.
 - `azureuser` added to the `docker` group (no sudo needed for docker commands).
-- NSG inbound rule: only port 80 (and 22 for SSH) is open. Backend (8000) and Postgres (5432) are **not** published to the host in `docker-compose.prod.yml`, so they're unreachable from the internet even if the NSG allowed it.
+- NSG inbound rule: ports 80, 443 (and 22 for SSH) are open. Backend (8000) and Postgres (5432) are **not** published to the host in `docker-compose.prod.yml`, so they're unreachable from the internet even if the NSG allowed it.
+
+## TLS / reverse proxy (Caddy)
+
+The public entrypoint is a **Caddy** container (`caddy:2-alpine`), defined in
+`docker-compose.prod.yml` and configured by the tracked `Caddyfile`. Caddy:
+
+- terminates TLS for `marque.skunkworkslab.online`, auto-fetching + renewing a
+  Let's Encrypt cert over the already-open port 80 (HTTP-01), and
+- redirects all HTTP → HTTPS, then reverse-proxies to the `frontend` nginx
+  container (which only `expose`s 80 internally — it no longer publishes a host
+  port; Caddy owns 80 + 443).
+
+Issued certs live in the `caddy_data` / `caddy_config` named volumes so a
+restart/redeploy does **not** re-request a cert (avoids Let's Encrypt rate
+limits). **Both `docker-compose.prod.yml` and `Caddyfile` are tracked in the
+repo** — the rsync below carries them, so a deploy keeps TLS intact. Do not
+hand-edit them only on the VM; change them here and redeploy.
 
 ## Redeploying
 

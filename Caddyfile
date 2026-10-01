@@ -1,0 +1,9 @@
+# Caddy reverse proxy — terminates TLS for the public domain and fronts the
+# frontend nginx container. Caddy fetches + auto-renews a Let's Encrypt cert for
+# this hostname on its own (HTTP-01 over the already-open port 80) and redirects
+# all HTTP traffic to HTTPS automatically. The frontend container no longer
+# publishes a host port; only Caddy is exposed to the internet (80 + 443).
+marque.skunkworkslab.online {
+	encode gzip
+	reverse_proxy frontend:80
+}
