@@ -2,7 +2,6 @@
 import { ArrowSquareOut, ArrowsClockwise } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { AssetPreview } from './AssetPreview'
-import brandData from '../mock/brand.json'
 
 const TYPE_LABELS = {
   poster: 'Poster',
@@ -12,7 +11,7 @@ const TYPE_LABELS = {
   other: 'Upload',
 }
 
-export function AssetCard({ asset, showScore = true }) {
+export function AssetCard({ asset, palette, fonts, showScore = true }) {
   const { id, type, label, size, signal_match, signal_verdict, slots, knobs, png_url } = asset
   const pass = signal_verdict === 'pass'
 
@@ -24,8 +23,8 @@ export function AssetCard({ asset, showScore = true }) {
           type={type}
           slots={slots}
           knobs={knobs}
-          palette={brandData.palette}
-          fonts={brandData.fonts}
+          palette={palette}
+          fonts={fonts}
           pngUrl={png_url}
         />
       </div>
