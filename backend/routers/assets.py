@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import get_session
 from models import Asset, Brand, new_id
-from schemas import AssetTypeT, BrandProfile, LibraryAsset
+from schemas import AssetTypeT, BrandProfile, FixKnobs, LibraryAsset, SignalGaps, SignalResult
 from uploads import BadUploadError, delete_image, save_image, validate_upload
 from vision import (
     InvalidImageError,
@@ -49,6 +49,11 @@ def _to_library_asset(asset: Asset) -> LibraryAsset:
         png_url=asset.png_url,
         signal_match=signal.get("match"),
         signal_verdict=signal.get("verdict"),
+        # Rendered assets (campaign-generated) carry their slots/knobs in
+        # layout_json; uploads leave these null and use png_url instead. Without
+        # this, generated assets render as blank CSS mockups in the Library.
+        slots=layout.get("slots"),
+        knobs=layout.get("knobs"),
         created_at=asset.created_at,
     )
 
@@ -79,8 +84,23 @@ async def save_asset(
         # the on-disk write so the scored image is identical to the stored one.
         jpeg_bytes, jpeg_mime = prepare_image(data)
         result = await check_signals(profile, jpeg_bytes, round_num=1, _skip_prepare=True)
-    except VisionNotConfiguredError as exc:
-        raise HTTPException(status_code=503, detail="Signal Check isn't configured on this deployment") from exc
+    except VisionNotConfiguredError:
+        # Heuristic fallback — never 503. prepare_image already ran above (the
+        # failure is check_signals noticing no AI key), so jpeg_bytes is set.
+        # We still save the asset with a neutral score so the library works
+        # offline; the result carries the same "heuristic fallback" marker the
+        # signal-check route uses.
+        result = SignalResult(
+            round=1,
+            detected=profile.positioning,
+            target=profile.positioning,
+            gaps=SignalGaps(premium=0, modern=0, playful=0, niche=0),
+            match=50,
+            verdict="needs_fix",
+            issue="heuristic fallback — AI key not configured",
+            evidence=["Signal Check requires OPENROUTER_API_KEY to score accurately"],
+            fix=FixKnobs(),
+        )
     except InvalidImageError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except VisionCheckError as exc:

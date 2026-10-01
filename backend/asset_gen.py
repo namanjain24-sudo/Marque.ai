@@ -65,7 +65,16 @@ def _headline(goal: str, brand: BrandProfile) -> str:
     # Keep it punchy — first clause, title-ish, bounded.
     first = re.split(r"[.!?\n]", text)[0].strip()
     headline = (first or text)[:60].strip()
-    return headline[:1].upper() + headline[1:] if headline else brand.name
+    headline = headline[:1].upper() + headline[1:] if headline else brand.name
+    # Brand Memory guard: a generated headline must never contain a word the
+    # brand has told us not to use. If any meaningful word (len > 3) from any
+    # `dont` rule appears in the headline, fall back to the safe brand name.
+    headline_lower = headline.lower()
+    for rule in brand.dont:
+        for word in rule.lower().split():
+            if len(word) > 3 and word in headline_lower:
+                return brand.name
+    return headline
 
 
 def _font_style(brand: BrandProfile) -> str:

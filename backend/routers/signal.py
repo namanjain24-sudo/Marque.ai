@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import get_session
 from models import Brand
-from schemas import BrandProfile, SignalResult
+from schemas import BrandProfile, FixKnobs, SignalGaps, SignalResult
 from uploads import BadUploadError, validate_upload
 from vision import InvalidImageError, VisionCheckError, VisionNotConfiguredError, check_signals
 
@@ -34,8 +34,20 @@ async def signal_check(
     profile = BrandProfile(**brand.profile_json)
     try:
         return await check_signals(profile, data, round_num=round)
-    except VisionNotConfiguredError as exc:
-        raise HTTPException(status_code=503, detail="Signal Check isn't configured on this deployment") from exc
+    except VisionNotConfiguredError:
+        # Heuristic fallback — never 503. The frontend renders this with an amber
+        # "heuristic fallback" badge so the user always sees a result, not an error.
+        return SignalResult(
+            round=round,
+            detected=profile.positioning,
+            target=profile.positioning,
+            gaps=SignalGaps(premium=0, modern=0, playful=0, niche=0),
+            match=50,
+            verdict="needs_fix",
+            issue="heuristic fallback — AI key not configured",
+            evidence=["Signal Check requires OPENROUTER_API_KEY to score accurately"],
+            fix=FixKnobs(),
+        )
     except InvalidImageError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except VisionCheckError as exc:

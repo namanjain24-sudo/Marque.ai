@@ -174,11 +174,18 @@ async def test_save_asset_422_empty_file(client, monkeypatch):
     assert resp.status_code == 422
 
 
-async def test_save_asset_503_without_key(client, monkeypatch):
+async def test_save_asset_heuristic_fallback_without_key(client, monkeypatch):
+    """Without an AI key, save-on-check must NOT 503 — it falls back to a
+    heuristic SignalResult (match=50) and still saves the asset so the library
+    works offline."""
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     brand = await _create_brand(client)
     resp = await client.post(
         f"/v1/brands/{brand['id']}/assets",
         files={"image": ("x.png", TINY_PNG, "image/png")},
     )
-    assert resp.status_code == 503
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["signal_match"] == 50
+    assert body["signal_verdict"] == "needs_fix"
+    assert body["png_url"]

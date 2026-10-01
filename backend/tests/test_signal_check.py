@@ -47,14 +47,19 @@ async def test_404_for_unknown_brand(client, monkeypatch):
     assert resp.status_code == 404
 
 
-async def test_503_when_not_configured(client, monkeypatch):
+async def test_signal_check_heuristic_fallback_when_no_key(client, monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     brand = await _create_brand(client)
     resp = await client.post(
         f"/v1/brands/{brand['id']}/signal-check",
         files={"image": ("a.png", TINY_PNG, "image/png")},
     )
-    assert resp.status_code == 503
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["match"] == 50
+    assert body["verdict"] == "needs_fix"
+    assert "heuristic fallback" in body["issue"]
+    assert body["gaps"] == {"premium": 0, "modern": 0, "playful": 0, "niche": 0}
 
 
 async def test_422_on_non_image_upload(client, monkeypatch):

@@ -1,9 +1,9 @@
-// components/SignalCard.jsx — shows match score, verdict, four mono rows, and Auto-fix
-// Uses mock data from signal.json, animates score from 74 → 91 on Auto-fix
+// components/SignalCard.jsx — shows match score, verdict, four mono rows, and Auto-fix.
+// Accepts an optional `result` prop (a real SignalResult object).
+// When result is null/undefined renders a graceful empty state — no mock data.
 import { CheckCircle, WarningCircle } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useState } from 'react'
-import signalData from '../mock/signal.json'
 
 const AXES = ['premium', 'modern', 'playful', 'niche']
 
@@ -28,22 +28,53 @@ function MonoRow({ axis, target, detected, gap }) {
   )
 }
 
-export function SignalCard() {
-  const [round, setRound] = useState(1)
+export function SignalCard({ result }) {
   const [fixing, setFixing] = useState(false)
-  const data = round === 1 ? signalData.round1 : signalData.round2
+  const [fixed, setFixed] = useState(false)
+
+  // If no result yet, show an empty / not-run state
+  if (!result) {
+    return (
+      <div className="border border-zinc-200 dark:border-zinc-800">
+        <div className="flex items-center justify-between gap-4 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
+          <span className="font-mono text-sm text-zinc-400 dark:text-zinc-600">Signal not checked</span>
+        </div>
+        <div className="px-5 py-3">
+          {AXES.map((axis) => (
+            <div key={axis} className="flex items-baseline justify-between border-b border-zinc-100 py-1.5 dark:border-zinc-900">
+              <span className="w-16 font-mono text-[12px] capitalize text-zinc-400 dark:text-zinc-600">{axis}</span>
+              <span className="font-mono text-[12px] text-zinc-300 dark:text-zinc-700">—</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  const data = fixed && result.fix_result ? result.fix_result : result
   const pass = data.verdict === 'pass'
+  // The backend returns this exact marker when no AI key is configured: show it
+  // as an explicit amber banner so the score reads as a heuristic placeholder,
+  // not a real vision result (UX invariant: silence broken work loudly).
+  const heuristic = typeof data.issue === 'string' && data.issue.includes('heuristic fallback')
 
   async function handleAutoFix() {
-    if (fixing || round === 2) return
+    if (fixing || fixed || !result.fix_result) return
     setFixing(true)
     await new Promise((r) => setTimeout(r, 2000))
-    setRound(2)
+    setFixed(true)
     setFixing(false)
   }
 
   return (
     <div className="border border-zinc-200 dark:border-zinc-800">
+      {/* Heuristic-fallback banner — shown when no AI key is configured */}
+      {heuristic && (
+        <div className="border-b border-amber-200 bg-amber-50 px-5 py-1.5 text-[12px] text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-400">
+          Signal Check: heuristic fallback — AI key not configured
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between gap-4 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
         <div className="flex items-baseline gap-2">
@@ -79,34 +110,36 @@ export function SignalCard() {
           <MonoRow
             key={axis}
             axis={axis}
-            target={data.target[axis]}
-            detected={data.detected[axis]}
-            gap={data.gaps[axis]}
+            target={data.target?.[axis] ?? 0}
+            detected={data.detected?.[axis] ?? 0}
+            gap={data.gaps?.[axis] ?? 0}
           />
         ))}
       </div>
 
       {/* Issue / Why line */}
-      <div className="border-t border-zinc-100 px-5 py-3 dark:border-zinc-900">
-        <p className="text-[13px] leading-relaxed text-zinc-600 dark:text-zinc-400">{data.issue}</p>
-        {data.evidence?.length > 0 && (
-          <ul className="mt-2 space-y-1">
-            {data.evidence.map((e) => (
-              <li key={e} className="font-mono text-[11px] text-zinc-400 dark:text-zinc-600">
-                · {e}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {data.issue && (
+        <div className="border-t border-zinc-100 px-5 py-3 dark:border-zinc-900">
+          <p className="text-[13px] leading-relaxed text-zinc-600 dark:text-zinc-400">{data.issue}</p>
+          {data.evidence?.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {data.evidence.map((e) => (
+                <li key={e} className="font-mono text-[11px] text-zinc-400 dark:text-zinc-600">
+                  · {e}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Auto-fix button */}
-      {!pass && (
+      {!pass && result.fix_result && (
         <div className="border-t border-zinc-100 px-5 py-3 dark:border-zinc-900">
           <button
             type="button"
             onClick={handleAutoFix}
-            disabled={fixing || round === 2}
+            disabled={fixing || fixed}
             className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:pointer-events-none disabled:opacity-50"
           >
             {fixing ? 'Revising: bolder headline, warmer photo, more accent…' : 'Auto-fix'}
@@ -114,9 +147,11 @@ export function SignalCard() {
         </div>
       )}
 
-      {round === 2 && (
+      {fixed && (
         <div className="border-t border-zinc-100 px-5 py-2 dark:border-zinc-900">
-          <p className="font-mono text-[11px] text-emerald-700 dark:text-emerald-500">Round 2 complete · Signal 91, pass</p>
+          <p className="font-mono text-[11px] text-emerald-700 dark:text-emerald-500">
+            Round 2 complete · Signal {result.fix_result?.match}, pass
+          </p>
         </div>
       )}
     </div>
