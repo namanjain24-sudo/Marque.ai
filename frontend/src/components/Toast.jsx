@@ -3,11 +3,15 @@ import { CheckCircle, WarningCircle, X } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect } from 'react'
 
+// eslint-disable-next-line react-refresh/only-export-components
+export { useToast } from '../hooks/useToast'
+
 export function Toast({ message, type = 'success', onClose }) {
   useEffect(() => {
+    if (!message) return
     const t = setTimeout(onClose, 3500)
     return () => clearTimeout(t)
-  }, [onClose])
+  }, [message, onClose])
 
   return (
     <AnimatePresence>
@@ -37,21 +41,4 @@ export function Toast({ message, type = 'success', onClose }) {
       )}
     </AnimatePresence>
   )
-}
-
-// useToast hook for convenience
-import { useCallback, useState } from 'react'
-
-export function useToast() {
-  const [toast, setToast] = useState(null)
-
-  const showToast = useCallback((message, type = 'success') => {
-    setToast({ message, type })
-  }, [])
-
-  const hideToast = useCallback(() => {
-    setToast(null)
-  }, [])
-
-  return { toast, showToast, hideToast }
 }

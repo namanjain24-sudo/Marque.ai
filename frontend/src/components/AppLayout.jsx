@@ -1,5 +1,5 @@
 // components/AppLayout.jsx — shared layout for app pages with slim left nav
-import { BookOpen, ChartBar, House, MagnifyingGlass, SquaresFour, Clipboard } from '@phosphor-icons/react'
+import { BookOpen, Clipboard, House, MagnifyingGlass, SquaresFour } from '@phosphor-icons/react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { Container } from './Container'
 import { Logo } from './Logo'

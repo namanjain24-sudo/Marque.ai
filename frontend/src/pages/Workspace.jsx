@@ -1,8 +1,6 @@
 // pages/Workspace.jsx — 3-column: chat history, campaign results, trace panel
-import { useMemo } from "react"
 import { AskBar } from "../components/AskBar"
 import { AssetCard } from "../components/AssetCard"
-import { Container } from "../components/Container"
 import { TracePanel } from "../components/TracePanel"
 import { useMockAgent } from "../hooks/useMockAgent"
 

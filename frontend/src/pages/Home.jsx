@@ -67,13 +67,12 @@ const CATEGORIES = [
 const DEMO_ASSET = campaignData.campaigns[0].assets[0]
 
 export function Home() {
+  const reduce = useReducedMotion()
   const [profile, setProfile] = useState(demoProfile)
   const [directions, setDirections] = useState(demoDirections)
   const [activeDirection, setActiveDirection] = useState(0)
   const [activeFormat, setActiveFormat] = useState("poster")
-  const [traceLog, setTraceLog] = useState([])
-  const [tracePlaying, setTracePlaying] = useState(false)
-  const reduce = useReducedMotion()
+  const [traceLog, setTraceLog] = useState(() => reduce ? traceEvents : [])
 
   useEffect(() => {
     let cancelled = false
@@ -90,9 +89,10 @@ export function Home() {
 
   // Auto-play trace loop for the "Watch it work" section
   useEffect(() => {
+    if (reduce) return // already seeded by lazy useState init
     let i = 0
     let cancelled = false
-    setTracePlaying(true)
+    // setTracePlaying is already true from lazy initial state
 
     function tick() {
       if (cancelled) return
@@ -112,13 +112,7 @@ export function Home() {
       }
     }
 
-    if (!reduce) {
-      setTimeout(tick, 1200)
-    } else {
-      setTraceLog(traceEvents)
-      setTracePlaying(false)
-    }
-
+    setTimeout(tick, 1200)
     return () => { cancelled = true }
   }, [reduce])
 
@@ -403,7 +397,7 @@ export function Home() {
             </p>
           </Reveal>
           <Reveal delay={0.1} className="mt-8">
-            <TracePanel events={traceLog} playing={tracePlaying} />
+            <TracePanel events={traceLog} playing={!reduce && traceLog.length < traceEvents.length} />
           </Reveal>
         </Container>
       </section>

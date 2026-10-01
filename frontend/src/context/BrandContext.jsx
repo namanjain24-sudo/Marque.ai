@@ -14,6 +14,7 @@ export function BrandProvider({ children }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useBrand() {
   const ctx = useContext(BrandContext)
   if (!ctx) throw new Error('useBrand must be used inside BrandProvider')

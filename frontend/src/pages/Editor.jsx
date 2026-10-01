@@ -1,13 +1,12 @@
 // pages/Editor.jsx — asset editor with live preview, rules check, signal card
 import { CheckCircle, WarningCircle, XCircle } from "@phosphor-icons/react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useParams } from "react-router-dom"
 import { AssetPreview } from "../components/AssetPreview"
 import { Container } from "../components/Container"
 import { SignalCard } from "../components/SignalCard"
 import { Toast, useToast } from "../components/Toast"
 import { useBrand } from "../context/BrandContext"
-import brandData from "../mock/brand.json"
 import campaignData from "../mock/campaign.json"
 import { rulesStatusList } from "../lib/rules"
 

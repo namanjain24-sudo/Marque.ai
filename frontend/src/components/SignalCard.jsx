@@ -2,7 +2,7 @@
 // Uses mock data from signal.json, animates score from 74 → 91 on Auto-fix
 import { CheckCircle, WarningCircle } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import signalData from '../mock/signal.json'
 
 const AXES = ['premium', 'modern', 'playful', 'niche']

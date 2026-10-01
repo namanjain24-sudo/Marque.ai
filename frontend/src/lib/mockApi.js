@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 // lib/mockApi.js — all mock data responses, no real network calls.
 // Each function is marked with the real endpoint it will replace.
 import brandData from '../mock/brand.json'

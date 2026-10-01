@@ -1,5 +1,4 @@
 // pages/Brand.jsx — brand profile editor with sliders, chips, identity tabs
-import { Check } from "@phosphor-icons/react"
 import { useState } from "react"
 import { BrandIdentityCard } from "../components/BrandIdentityCard"
 import { Button } from "../components/Button"
