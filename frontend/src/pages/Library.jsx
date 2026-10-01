@@ -4,6 +4,7 @@
 import { X } from "@phosphor-icons/react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { AssetCard } from "../components/AssetCard"
+import { BrandifyPanel } from "../components/BrandifyPanel"
 import { Container } from "../components/Container"
 import { api } from "../lib/api"
 import { useBrand } from "../context/BrandContext"
@@ -89,6 +90,13 @@ export function Library() {
     <div className="py-10">
       <Container>
         <h1 className="font-display text-2xl font-bold text-zinc-900 dark:text-zinc-50">Library</h1>
+
+        {/* Brand-ify an uploaded image into a brand-consistent asset */}
+        {brand?.id && (
+          <div className="mt-6">
+            <BrandifyPanel brandId={brand.id} onDone={reload} />
+          </div>
+        )}
 
         {/* Dashboard strip */}
         <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
