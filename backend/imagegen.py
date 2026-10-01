@@ -114,10 +114,10 @@ def _extract_image_bytes(payload: dict) -> bytes:
         raise ImageGenError(f"Could not decode image data: {exc}") from exc
 
 
-async def generate_hero(prompt: str) -> bytes:
-    """One image-model call -> raw image bytes (PNG). Raises ImageGen* on any
-    failure; callers catch and fall back to the gradient. Never returns None —
-    either bytes or an exception, so the caller's try/except is explicit."""
+async def _call_image_model(messages: list[dict]) -> bytes:
+    """POST to the OpenRouter image model and return the generated image bytes.
+    Shared by text->image (generate_hero) and image->image (brandify_image).
+    Raises ImageGen* on no-key / network / non-200 / unusable reply."""
     api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
         raise ImageGenNotConfigured("OPENROUTER_API_KEY is not configured")
@@ -134,7 +134,7 @@ async def generate_hero(prompt: str) -> bytes:
                 },
                 json={
                     "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
+                    "messages": messages,
                     "modalities": ["image", "text"],
                 },
                 timeout=_IMAGE_TIMEOUT,
@@ -148,6 +148,67 @@ async def generate_hero(prompt: str) -> bytes:
         raise ImageGenError(f"Image service returned {response.status_code}")
 
     return _extract_image_bytes(response.json())
+
+
+async def generate_hero(prompt: str) -> bytes:
+    """One text->image call -> raw image bytes. Raises ImageGen* on any failure;
+    callers catch and fall back to the gradient."""
+    return await _call_image_model([{"role": "user", "content": prompt}])
+
+
+def build_brandify_prompt(brand) -> str:
+    """Instruction for the image-edit model: restyle an UPLOADED image to match
+    the brand, without changing what the image is OF. Brand data is injected
+    deterministically (exact palette hex, photo_style, positioning, do/don't) so
+    'brand-consistent' means this brand's actual look, not a generic guess."""
+    palette = getattr(brand, "palette", None)
+    hexes = []
+    if palette is not None:
+        for key in ("primary", "secondary", "accent"):
+            val = getattr(palette, key, None)
+            if val:
+                hexes.append(f"{key} {val}")
+    palette_line = ", ".join(hexes) if hexes else "the brand's existing palette"
+
+    pos = brand.positioning
+    # Translate positioning into plain visual direction the image model can use.
+    tone_bits = []
+    tone_bits.append("premium, refined, high-end" if pos.premium >= 60 else "accessible, everyday, unpretentious")
+    tone_bits.append("modern, clean, contemporary" if pos.modern >= 60 else "classic, traditional, heritage")
+    tone_bits.append("playful, bold, energetic" if pos.playful >= 60 else "serious, restrained, understated")
+    positioning_line = "; ".join(tone_bits)
+
+    photo_style = getattr(brand, "photo_style", None) or "clean commercial product photography"
+    donts = "; ".join(brand.dont) if getattr(brand, "dont", None) else ""
+
+    lines = [
+        f"Restyle this image so it looks on-brand for {brand.name}, a {brand.category} brand.",
+        f"Shift the colour grade toward the brand palette: {palette_line}.",
+        f"Visual positioning: {positioning_line}.",
+        f"Photography style: {photo_style}.",
+        "Keep the SAME subject, composition and framing — only change the look, lighting and colour "
+        "so it feels like it belongs to this brand. Do NOT add any text, letters, logos or watermarks.",
+    ]
+    if donts:
+        lines.append(f"Avoid, per the brand's don't-rules: {donts}.")
+    return " ".join(lines)
+
+
+async def brandify_image(image_bytes: bytes, brand) -> bytes:
+    """Image->image: take an uploaded image and return a brand-consistent version,
+    recoloured/relit to the brand's palette, photo_style and positioning. The
+    subject is preserved; only the look changes. Raises ImageGen* on failure."""
+    b64 = base64.b64encode(image_bytes).decode("ascii")
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": build_brandify_prompt(brand)},
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
+            ],
+        }
+    ]
+    return await _call_image_model(messages)
 
 
 async def try_generate_hero(prompt: str) -> bytes | None:
