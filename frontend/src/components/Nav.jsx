@@ -30,7 +30,7 @@ export function Nav() {
           >
             Library
           </Link>
-          <Button to="/onboarding" className="px-4 py-2 text-sm">
+          <Button to="/onboard" className="px-4 py-2 text-sm">
             Get started
           </Button>
         </nav>

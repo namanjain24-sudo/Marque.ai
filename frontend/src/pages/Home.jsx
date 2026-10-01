@@ -141,7 +141,7 @@ export function Home() {
             </div>
 
             <div className="mt-6 flex flex-wrap items-center gap-4">
-              <Button to="/onboarding">Get started</Button>
+              <Button to="/onboard">Get started</Button>
               <Button to={`/brand/${DEMO_BRAND_ID}`} variant="secondary">
                 See a live brand
               </Button>
@@ -444,7 +444,7 @@ export function Home() {
             </h2>
             <p className="mt-4 text-[15px] text-zinc-500 dark:text-zinc-500">Takes about two minutes.</p>
             <div className="mt-8">
-              <Button to="/onboarding">Get started</Button>
+              <Button to="/onboard">Get started</Button>
             </div>
           </Reveal>
         </Container>
