@@ -181,3 +181,69 @@ async def test_list_limit_bounds_rejected(client):
     assert (await client.get("/v1/brands", params={"limit": 0})).status_code == 422
     assert (await client.get("/v1/brands", params={"limit": 501})).status_code == 422
     assert (await client.get("/v1/brands", params={"offset": -1})).status_code == 422
+
+
+class TestAppendRule:
+    """POST /memory/rules — add one do/dont/preference entry without
+    resending the whole list (PATCH /memory replaces the list wholesale)."""
+
+    async def test_appends_without_touching_existing_entries(self, client):
+        brand = await _create(client)
+        original_dont = brand["dont"]
+        resp = await client.post(f"/v1/brands/{brand['id']}/memory/rules", json={"field": "dont", "value": "neon colours"})
+        d = resp.json()
+        assert d["dont"] == [*original_dont, "neon colours"]
+        assert d["version"] == brand["version"] + 1
+
+    async def test_duplicate_value_is_a_noop(self, client):
+        brand = await _create(client)
+        first = (await client.post(f"/v1/brands/{brand['id']}/memory/rules", json={"field": "dont", "value": "neon colours"})).json()
+        second = (await client.post(f"/v1/brands/{brand['id']}/memory/rules", json={"field": "dont", "value": "neon colours"})).json()
+        assert first["dont"] == second["dont"]
+        assert first["version"] == second["version"]
+
+    async def test_works_for_do_and_preferences_too(self, client):
+        brand = await _create(client)
+        d = (await client.post(f"/v1/brands/{brand['id']}/memory/rules", json={"field": "do", "value": "warm lighting"})).json()
+        assert "warm lighting" in d["do"]
+        p = (await client.post(f"/v1/brands/{brand['id']}/memory/rules", json={"field": "preferences", "value": "shorter headlines"})).json()
+        assert "shorter headlines" in p["preferences"]
+
+    async def test_unknown_brand_404(self, client):
+        resp = await client.post("/v1/brands/brand_nope/memory/rules", json={"field": "dont", "value": "x"})
+        assert resp.status_code == 404
+
+    async def test_invalid_field_rejected(self, client):
+        brand = await _create(client)
+        resp = await client.post(f"/v1/brands/{brand['id']}/memory/rules", json={"field": "personality", "value": "x"})
+        assert resp.status_code == 422
+
+    async def test_empty_value_rejected(self, client):
+        brand = await _create(client)
+        resp = await client.post(f"/v1/brands/{brand['id']}/memory/rules", json={"field": "dont", "value": ""})
+        assert resp.status_code == 422
+
+    async def test_max_items_cap_enforced(self, client):
+        brand = await _create(client)
+        bid = brand["id"]
+        # 3 default dont rules already present; fill up to the cap of 20
+        for i in range(20 - len(brand["dont"])):
+            resp = await client.post(f"/v1/brands/{bid}/memory/rules", json={"field": "dont", "value": f"rule-{i}"})
+            assert resp.status_code == 200
+        final = (await client.get(f"/v1/brands/{bid}")).json()
+        assert len(final["dont"]) == 20
+
+        resp = await client.post(f"/v1/brands/{bid}/memory/rules", json={"field": "dont", "value": "one-too-many"})
+        assert resp.status_code == 422
+
+    async def test_concurrent_appends_do_not_lose_entries(self, client):
+        brand = await _create(client)
+        bid = brand["id"]
+        values = [f"concurrent-rule-{i}" for i in range(6)]
+        await asyncio.gather(
+            *(client.post(f"/v1/brands/{bid}/memory/rules", json={"field": "dont", "value": v}) for v in values)
+        )
+        final = (await client.get(f"/v1/brands/{bid}")).json()
+        for v in values:
+            assert v in final["dont"]
+        assert len(final["dont"]) == len(brand["dont"]) + len(values)

@@ -123,6 +123,17 @@ class IdentityApply(BaseModel):
     fields: list[Literal["palette", "fonts"]] | None = Field(default=None, min_length=1)
 
 
+class MemoryRuleAppend(BaseModel):
+    """Body for POST /v1/brands/{id}/memory/rules — adds one entry to a
+    do/dont/preferences list without needing to resend the whole list (PATCH
+    /memory replaces the list wholesale; this appends one item). Matches the
+    PRD's 'owner says X, agent adds a Don't rule' tool (Section 8.2,
+    update_memory)."""
+
+    field: Literal["do", "dont", "preferences"]
+    value: RuleStr
+
+
 class BrandMemoryPatch(BaseModel):
     """Partial update for PATCH /v1/brands/{id}/memory — any subset of BrandProfile fields."""
 

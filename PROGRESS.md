@@ -17,12 +17,8 @@ Product name is **Marque.ai** (the PRD's internal codename "BrandOS" is not used
 | F2 — Brand Memory | ✅ Done, thoroughly tested — found + fixed a real concurrency bug |
 | F3 — Brand Identity (light) | ✅ Done, thoroughly tested — found + fixed a matching concurrency bug |
 | F1+F2+F3 combined | ✅ Integration-tested together (same brand, multiple brands, persistence) |
-| Automated test suite | ✅ 63 pytest tests (`backend/tests/`), wired into CI with a Postgres service |
+| Automated test suite | ✅ 71 pytest tests (`backend/tests/`), wired into CI with a Postgres service |
 | F4 and onwards | Not started |
-
-**Open question for you** (see F2 section): list-field patches (`dont`/`do`)
-replace the whole list instead of appending one rule — PRD's wording implies
-additive. Not changed yet, needs your call.
 
 ---
 
@@ -179,19 +175,32 @@ fixed there too for consistency, same mechanism.
   (e.g. `{"city": null}`) does clear that field, and doesn't touch fields
   that weren't included in the patch body — verified this distinction
   actually holds via Pydantic's `exclude_unset`, not assumed.
-- **Open design question, not changed yet**: patching a list field (`dont`,
-  `do`, `preferences`) **replaces the whole list**, it doesn't append. PRD's
-  own wording for this tool is "owner says 'never use neon colours', agent
-  *adds* a Don't rule" — which reads as additive. Today, a caller that does
-  `PATCH {"dont": ["neon colours"]}` thinking it's adding one rule will
-  actually **wipe out every other Don't rule** the brand had. This is
-  standard REST PATCH-replace semantics (defensible on its own), but it
-  doesn't match the PRD's described UX, and it's an easy mistake for
-  whoever builds the agent/UI side to make. Flagging this rather than
-  picking a fix myself — options are: (a) leave as-is and document that
-  callers must fetch-then-send the full list, or (b) add a dedicated
-  additive endpoint/action (e.g. `POST /v1/brands/{id}/rules` to append one
-  rule atomically). Tell me which you want, or if it's fine as-is for now.
+- **Resolved**: patching a list field (`dont`, `do`, `preferences`) via
+  `PATCH /memory` still **replaces the whole list** — that's unchanged and
+  stays the right behavior for "set this to exactly these values" (e.g. a
+  UI with a full rules-editor screen). But per your call, added a second,
+  additive path for the common case PRD actually describes ("owner says
+  'never use neon colours', agent adds a Don't rule"): see
+  `POST /memory/rules` below.
+
+### New: `POST /v1/brands/{id}/memory/rules` — add one rule without resending the list
+
+Body: `{"field": "do" | "dont" | "preferences", "value": "..."}`. Appends
+`value` to that list if it isn't already there; if it's already present,
+it's a no-op (no duplicate, no version bump) — so an agent can call this
+repeatedly with the same rule without the list growing junk. Respects the
+same size caps as everything else (20 for do/dont, 40 for preferences) —
+422 once a list is full. Row-locked the same way as `PATCH /memory`.
+
+8 tests: appends without touching other entries, duplicate is a no-op,
+works for all three fields, 404/422 cases, the cap is enforced exactly at
+the boundary, and 6 concurrent appends to the same brand at once all land
+(no lost entries — same lost-update bug class as everything else this
+session, so it got the same test treatment up front instead of waiting to
+find it the hard way).
+
+`PATCH /memory` is still there for "replace the whole list" / editing
+everything at once; this is for the one-at-a-time case.
 
 ## F3 — Brand Identity (light)
 
@@ -364,6 +373,50 @@ each file in isolation; re-verified via a full `docker compose down -v && up
 seeds correctly under the new, stricter validation, that the container
 survives a restart with data intact, and that the running container still
 has neither `pytest` nor `tests/` in it.
+
+## Manual user-journey test (not automated)
+
+Tried walking through the API the way an actual owner would, instead of
+scripted/adversarial requests: onboarded a brand that doesn't exist yet
+("Tea Theory", a small café in Bangalore — not the seeded demo brand),
+reviewed the draft the way its owner would, looked at the 2 identity
+directions, applied one, then asked for a preference in plain language the
+way an owner actually talks ("never use neon colours, always show chai in a
+kulhad if possible"). (Chrome wasn't available this session to click through
+`/docs` directly, so this was curl calls made in that order and read the way
+a person would, not a scripted assertion suite.)
+
+Nothing functionally broke — same results as the automated suite — but this
+surfaced 3 real UX gaps worth knowing about before anyone builds a frontend
+on top of this API:
+
+- **Identity direction keys are internal, not display names.** `GET
+  /identity` returns things like `"key": "modern_minimal"` — fine for a
+  frontend to switch on, but it reads as a raw slug, not something to show a
+  user directly. Whoever builds the identity-picker screen needs to map
+  these to friendly labels (PRD just says "2 directions", doesn't name them).
+- **`version` isn't a reliable signal for "your save worked".** Applying an
+  identity direction that happens to already match the brand's current
+  palette is correctly a no-op (see the F3 section above) — `version`
+  doesn't change. A frontend that shows "Saved!" only when `version`
+  increments would stay silent on a no-op save, which looks like nothing
+  happened even though the request succeeded. The UI should confirm on a
+  successful response, not on a version diff.
+- **The API is a structured form, not yet an assistant.** A real owner's
+  request doesn't arrive pre-split into "this part is a Don't rule, this
+  part is a preference" — I had to decide that split myself using knowledge
+  of the schema. PRD's actual vision (F7's intent-classifying orchestrator,
+  not built yet) is what's supposed to do that translation from one sentence
+  into the right API calls. Not a bug in what exists today, but a concrete
+  reminder of the gap between "backend with a clean contract" (done) and
+  "something an owner can talk to directly" (not started).
+- Validation error bodies (FastAPI's default Pydantic format — `detail: [{
+  loc, msg, type, ... }]`) are clear to a developer but not something to
+  show an end user as-is (e.g. a raw `"String should match pattern
+  '^#[0-9A-Fa-f]{6}$'"` for an invalid palette colour). Expected to need a
+  translation layer in whatever frontend consumes this API; not a backend
+  problem since a real colour-picker input would never send a non-hex value
+  in the first place.
 
 ---
 

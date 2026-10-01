@@ -6,7 +6,16 @@ from brand_dna import propose_do_dont, propose_positioning, propose_tone
 from db import get_session
 from identity import propose_identity
 from models import Brand, new_id
-from schemas import BrandCreate, BrandMemoryPatch, BrandProfile, Fonts, Palette, Voice
+from schemas import (
+    MAX_LIST_ITEMS,
+    BrandCreate,
+    BrandMemoryPatch,
+    BrandProfile,
+    Fonts,
+    MemoryRuleAppend,
+    Palette,
+    Voice,
+)
 
 router = APIRouter(prefix="/v1/brands", tags=["brands"])
 
@@ -91,6 +100,37 @@ async def update_brand_memory(
         return current
 
     merged.version = current.version + 1
+    brand.profile_json = merged.model_dump(mode="json")
+    await session.commit()
+    return merged
+
+
+@router.post("/{brand_id}/memory/rules", response_model=BrandProfile)
+async def append_memory_rule(
+    brand_id: str, payload: MemoryRuleAppend, session: AsyncSession = Depends(get_session)
+):
+    """Add one entry to `do`/`dont`/`preferences` without resending the whole
+    list — e.g. owner says 'never use neon colours', this adds just that one
+    Don't rule. Already-present values are a no-op (no duplicate added, no
+    version bump). Row-locked like the other memory writes."""
+    brand = await session.get(Brand, brand_id, with_for_update=True)
+    if brand is None:
+        raise HTTPException(status_code=404, detail="Brand not found")
+
+    current = BrandProfile(**brand.profile_json)
+    current_list = getattr(current, payload.field)
+    if payload.value in current_list:
+        return current
+
+    max_items = MAX_LIST_ITEMS * 2 if payload.field == "preferences" else MAX_LIST_ITEMS
+    if len(current_list) >= max_items:
+        raise HTTPException(
+            status_code=422, detail=f"{payload.field} already has the maximum of {max_items} entries"
+        )
+
+    merged = current.model_copy(
+        update={payload.field: [*current_list, payload.value], "version": current.version + 1}
+    )
     brand.profile_json = merged.model_dump(mode="json")
     await session.commit()
     return merged
