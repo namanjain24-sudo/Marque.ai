@@ -18,13 +18,12 @@ export function Campaigns() {
 
   useEffect(() => {
     if (!brand?.id) return
-    setLoading(true)
-    setError(null)
+    let cancelled = false
     api
       .listCampaigns(brand.id)
-      .then(setCampaigns)
-      .catch((err) => setError(err.message ?? "Could not load campaigns."))
-      .finally(() => setLoading(false))
+      .then((data) => { if (!cancelled) { setCampaigns(data); setLoading(false); setError(null) } })
+      .catch((err) => { if (!cancelled) { setError(err.message ?? "Could not load campaigns."); setLoading(false) } })
+    return () => { cancelled = true }
   }, [brand?.id])
 
   return (

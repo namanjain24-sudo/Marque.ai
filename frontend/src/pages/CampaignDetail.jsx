@@ -14,11 +14,12 @@ export function CampaignDetail() {
   const { toast, hideToast } = useToast()
 
   useEffect(() => {
-    setLoadError(null)
+    let cancelled = false
     api
       .getCampaign(id)
-      .then(setCampaign)
-      .catch((err) => setLoadError(err.message ?? "Could not load campaign."))
+      .then((data) => { if (!cancelled) { setCampaign(data); setLoadError(null) } })
+      .catch((err) => { if (!cancelled) setLoadError(err.message ?? "Could not load campaign.") })
+    return () => { cancelled = true }
   }, [id])
 
   if (loadError) {
