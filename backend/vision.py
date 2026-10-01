@@ -311,10 +311,27 @@ def _api_key_and_model() -> tuple[str, str]:
     return api_key, model
 
 
-async def check_signals(profile: BrandProfile, image_bytes: bytes, round_num: int = 1) -> SignalResult:
+async def check_signals(
+    profile: BrandProfile,
+    image_bytes: bytes,
+    round_num: int = 1,
+    *,
+    _skip_prepare: bool = False,
+) -> SignalResult:
+    """Score an image against the brand's target positioning.
+
+    `_skip_prepare` is an internal optimisation: callers that have already run
+    `prepare_image` (e.g. assets.py, which reuses the result for both the vision
+    call and the on-disk write) can pass `True` to avoid decoding/re-encoding
+    the JPEG a second time.  External callers should leave it at the default.
+    """
     api_key, model = _api_key_and_model()
 
-    resized_bytes, resized_mime = prepare_image(image_bytes)
+    if _skip_prepare:
+        # Caller guarantees image_bytes is already a downscaled JPEG.
+        resized_bytes, resized_mime = image_bytes, "image/jpeg"
+    else:
+        resized_bytes, resized_mime = prepare_image(image_bytes)
     image_b64 = base64.b64encode(resized_bytes).decode("ascii")
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},

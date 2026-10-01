@@ -75,8 +75,10 @@ async def save_asset(
 
     profile = BrandProfile(**brand.profile_json)
     try:
-        result = await check_signals(profile, data)
-        jpeg_bytes, _ = prepare_image(data)
+        # prepare_image once: reuse the same bytes for both the vision call and
+        # the on-disk write so the scored image is identical to the stored one.
+        jpeg_bytes, jpeg_mime = prepare_image(data)
+        result = await check_signals(profile, jpeg_bytes, round_num=1, _skip_prepare=True)
     except VisionNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail="Signal Check isn't configured on this deployment") from exc
     except InvalidImageError as exc:
@@ -84,8 +86,13 @@ async def save_asset(
     except VisionCheckError as exc:
         raise HTTPException(status_code=502, detail=f"Signal Check failed: {exc}") from exc
 
+    # Commit the DB row first; only write the file if the commit succeeds.
+    # This prevents orphaned files on disk when the transaction rolls back.
     asset_id = new_id("a")
-    png_url = save_image(jpeg_bytes, asset_id)
+    # Derive the URL deterministically (same logic as save_image) without
+    # touching the filesystem yet.
+    from uploads import MEDIA_URL_PREFIX
+    png_url = f"{MEDIA_URL_PREFIX}/{asset_id}.jpg"
     asset = Asset(
         id=asset_id,
         brand_id=brand_id,
@@ -96,6 +103,8 @@ async def save_asset(
     )
     session.add(asset)
     await session.commit()
+    # DB row is durable — now safe to write the file.
+    save_image(jpeg_bytes, asset_id)
     return _to_library_asset(asset)
 
 
@@ -127,9 +136,14 @@ async def get_asset(brand_id: str, asset_id: str, session: AsyncSession = Depend
 
 @router.delete("/{asset_id}", status_code=204)
 async def delete_asset(brand_id: str, asset_id: str, session: AsyncSession = Depends(get_session)):
-    asset = await session.get(Asset, asset_id)
+    # Row-locked read (SELECT … FOR UPDATE) so concurrent deletes on the same
+    # asset serialize rather than both reading the row and both trying to delete.
+    asset = await session.get(Asset, asset_id, with_for_update=True)
     if asset is None or asset.brand_id != brand_id:
         raise HTTPException(status_code=404, detail="Asset not found")
-    delete_image(asset.png_url)
+    png_url = asset.png_url
     await session.delete(asset)
     await session.commit()
+    # File removal is best-effort and happens after the DB commit so a crash
+    # here leaves an orphaned file (acceptable) rather than a dangling row.
+    delete_image(png_url)
