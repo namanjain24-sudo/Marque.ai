@@ -222,3 +222,61 @@ class SignalResult(BaseModel):
     issue: str
     evidence: list[str]
     fix: FixKnobs
+
+
+# --- F5 (light): asset generation + campaigns (PRD Section 7 F5) ---
+
+
+class AssetKnobs(BaseModel):
+    """The full style-knob set for a rendered asset. Same vocabulary as FixKnobs
+    but all fields are required (with sensible defaults) — an asset always has a
+    concrete value for every knob, whereas FixKnobs is a sparse suggested delta.
+    Matches what AssetPreview.jsx reads."""
+
+    density: DensityT = "balanced"
+    font_style: FontStyleT = "display_bold"
+    photo_tone: PhotoToneT = "warm"
+    accent_usage: float = Field(default=0.6, ge=ACCENT_RANGE[0], le=ACCENT_RANGE[1])
+    overlay: float = Field(default=0.4, ge=OVERLAY_RANGE[0], le=OVERLAY_RANGE[1])
+    layout_variant: LayoutVariantT = "left"
+
+
+class AssetSlots(BaseModel):
+    """The text/content slots AssetPreview renders. `hero_image` is part of the
+    contract but the renderer currently draws a gradient in its place."""
+
+    headline: str = ""
+    subline: str = ""
+    price: str | None = None
+    cta: str = ""
+    logo: str = ""
+    hero_image: str | None = None
+
+
+class AssetOut(BaseModel):
+    id: str
+    type: Literal["poster", "post", "story", "whatsapp"]
+    label: str
+    size: str
+    signal_match: int | None = None
+    signal_verdict: Literal["pass", "needs_fix"] | None = None
+    slots: AssetSlots
+    knobs: AssetKnobs
+
+
+class CampaignOut(BaseModel):
+    id: str
+    name: str
+    objective: str
+    core_message: str
+    status: str
+    date: str
+    assets: list[AssetOut]
+
+
+class AgentRunIn(BaseModel):
+    """What the hero chat / Workspace AskBar sends: one plain-language goal.
+    A real orchestrator (F7) will later classify intent; for now this always
+    drives deterministic campaign generation."""
+
+    goal: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]

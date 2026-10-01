@@ -11,6 +11,7 @@ from sqlalchemy import text
 
 from db import SessionLocal, engine
 from models import Base, Brand
+from routers.agent import campaigns_router, router as agent_router
 from routers.brands import router as brands_router
 from routers.identity import router as identity_router
 from routers.signal import router as signal_router
@@ -40,6 +41,8 @@ app = FastAPI(title="Marque.ai", lifespan=lifespan)
 app.include_router(brands_router)
 app.include_router(identity_router)
 app.include_router(signal_router)
+app.include_router(agent_router)
+app.include_router(campaigns_router)
 
 
 @app.get("/")

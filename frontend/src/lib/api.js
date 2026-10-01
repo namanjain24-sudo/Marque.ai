@@ -93,4 +93,9 @@ export const api = {
     form.append("round", String(round))
     return requestForm(`/brands/${id}/signal-check`, form)
   },
+  // F5 (light): generate a campaign from a one-line goal (hero chat / Workspace).
+  agentRun: (brandId, goal) =>
+    request(`/brands/${brandId}/agent/run`, { method: "POST", body: JSON.stringify({ goal }) }),
+  listCampaigns: (brandId) => request(`/brands/${brandId}/campaigns`),
+  getCampaign: (campaignId) => request(`/campaigns/${campaignId}`),
 }

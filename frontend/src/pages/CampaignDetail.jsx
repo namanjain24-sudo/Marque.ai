@@ -5,7 +5,7 @@ import { useParams } from "react-router-dom"
 import { AssetCard } from "../components/AssetCard"
 import { Container } from "../components/Container"
 import { Toast, useToast } from "../components/Toast"
-import { mockApi } from "../lib/mockApi"
+import { api } from "../lib/api"
 
 export function CampaignDetail() {
   const { id } = useParams()
@@ -13,7 +13,7 @@ export function CampaignDetail() {
   const { toast, showToast, hideToast } = useToast()
 
   useEffect(() => {
-    mockApi.getCampaign(id).then(setCampaign).catch(() => {})
+    api.getCampaign(id).then(setCampaign).catch(() => {})
   }, [id])
 
   if (!campaign) {
