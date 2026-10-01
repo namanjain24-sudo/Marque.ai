@@ -15,6 +15,7 @@ response (PRD Table 13 "Invalid JSON from LLM").
 import base64
 import io
 import json
+import logging
 import os
 
 import httpx
@@ -32,6 +33,8 @@ from schemas import (
 )
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+logger = logging.getLogger(__name__)
 
 # PRD Table 8's poles (0 and 100) plus 25/50/75 anchors authored to match
 # them, so the critic scores against a fixed scale instead of its own vibe
@@ -189,28 +192,40 @@ def _parse_json_response(text: str) -> dict:
 
 
 async def _call_model(client: httpx.AsyncClient, api_key: str, model: str, messages: list[dict]) -> str:
-    response = await client.post(
-        OPENROUTER_URL,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "X-Title": "Marque.ai",
-        },
-        json={
-            "model": model,
-            "messages": messages,
-            "temperature": 0,
-            "max_tokens": 1000,
-            # Force well-formed JSON from the critic. Without this the model
-            # occasionally emits a trailing comma / unquoted key and the whole
-            # check 502s (observed live in prod). Belt-and-suspenders with the
-            # parse-and-retry-once path below.
-            "response_format": {"type": "json_object"},
-        },
-        timeout=45,
-    )
+    try:
+        response = await client.post(
+            OPENROUTER_URL,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "X-Title": "Marque.ai",
+            },
+            json={
+                "model": model,
+                "messages": messages,
+                "temperature": 0,
+                "max_tokens": 1000,
+                # Force well-formed JSON from the critic. Without this the model
+                # occasionally emits a trailing comma / unquoted key and the whole
+                # check 502s (observed live in prod). Belt-and-suspenders with the
+                # parse-and-retry-once path below.
+                "response_format": {"type": "json_object"},
+            },
+            timeout=45,
+        )
+    except httpx.RequestError as exc:
+        # Network-level failure (timeout, DNS, connection refused, etc.) —
+        # log the real error server-side but never expose it to the client.
+        logger.error("OpenRouter network error: %s", exc)
+        raise VisionCheckError("Vision service unavailable, please try again.") from exc
     if response.status_code != 200:
-        raise VisionCheckError(f"OpenRouter returned {response.status_code}: {response.text[:300]}")
+        # Log the upstream body for debugging; never send it to the client.
+        logger.error(
+            "OpenRouter returned %d: %s",
+            response.status_code,
+            response.text[:500],
+        )
+        raise VisionCheckError("Vision service unavailable, please try again.")
     body = response.json()
     try:
         return body["choices"][0]["message"]["content"]
