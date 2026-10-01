@@ -117,14 +117,23 @@ export function AssetPreview({ type = 'poster', slots, knobs, palette, fonts, pn
         />
       )}
 
-      {/* Overlay — darker when a photo is present so the headline stays readable. */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: `rgba(0,0,0,${heroImage ? Math.min(0.85, overlay + 0.25) : overlay})`,
-        }}
-      />
+      {/* Scrim — a bottom-weighted gradient (not a flat wash) so the image reads
+          clearly up top while the headline sits on solid contrast below. Over a
+          photo it's stronger; over the plain gradient it's lighter. This is the
+          single biggest "looks designed, not a box" change. */}
+      {(() => {
+        const base = heroImage ? Math.min(0.9, overlay + 0.3) : overlay
+        const mid = Math.max(0, base - 0.35)
+        return (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: `linear-gradient(to top, rgba(0,0,0,${base}) 0%, rgba(0,0,0,${mid}) 45%, rgba(0,0,0,${Math.max(0, mid - 0.15)}) 100%)`,
+            }}
+          />
+        )
+      })()}
 
       {/* Accent bar at top */}
       <div
@@ -179,18 +188,21 @@ export function AssetPreview({ type = 'poster', slots, knobs, palette, fonts, pn
             width: isSplit ? '55%' : '100%',
           }}
         >
-          {/* Headline */}
+          {/* Headline — larger, tighter, with a subtle shadow so it stays legible
+              on any background (photo or gradient). */}
           {slots.headline && (
             <p
               style={{
                 fontFamily: headingFont,
-                fontSize: 'clamp(18px, 6%, 36px)',
-                lineHeight: 1.05,
+                fontSize: 'clamp(20px, 7.5%, 44px)',
+                lineHeight: font_style === 'display_bold' ? 0.98 : 1.05,
                 color: lightColor,
                 textAlign,
                 textTransform: font_style === 'display_bold' ? 'uppercase' : 'none',
-                letterSpacing: font_style === 'display_bold' ? '0.02em' : '0',
+                letterSpacing: font_style === 'display_bold' ? '0.01em' : '-0.01em',
+                textShadow: heroImage ? '0 2px 12px rgba(0,0,0,0.55)' : '0 1px 6px rgba(0,0,0,0.3)',
                 margin: 0,
+                maxWidth: '18ch',
               }}
             >
               {slots.headline}
@@ -202,28 +214,36 @@ export function AssetPreview({ type = 'poster', slots, knobs, palette, fonts, pn
             <p
               style={{
                 fontFamily: bodyFont,
-                fontSize: 'clamp(9px, 2.8%, 14px)',
+                fontSize: 'clamp(9px, 2.9%, 15px)',
+                lineHeight: 1.3,
                 color: lightColor,
-                opacity: 0.8,
+                opacity: 0.88,
                 textAlign,
+                textShadow: heroImage ? '0 1px 6px rgba(0,0,0,0.5)' : 'none',
                 margin: 0,
+                maxWidth: '32ch',
               }}
             >
               {slots.subline}
             </p>
           )}
 
-          {/* Price badge */}
+          {/* Price badge — a solid chip with a soft drop shadow so it pops off
+              the background like a real sticker. */}
           {slots.price && (
             <div
               style={{
                 display: 'inline-flex',
+                alignItems: 'center',
                 background: primaryColor,
                 color: lightColor,
-                padding: '2% 4%',
+                padding: '2.5% 4.5%',
                 fontFamily: headingFont,
-                fontSize: 'clamp(12px, 4%, 22px)',
-                letterSpacing: '0.04em',
+                fontSize: 'clamp(13px, 4.5%, 24px)',
+                fontWeight: 700,
+                letterSpacing: '0.03em',
+                borderRadius: '2px',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
                 alignSelf: layout_variant === 'center' ? 'center' : 'flex-start',
               }}
             >
@@ -231,22 +251,28 @@ export function AssetPreview({ type = 'poster', slots, knobs, palette, fonts, pn
             </div>
           )}
 
-          {/* CTA */}
+          {/* CTA — an outlined pill with a trailing arrow, reads as a button. */}
           {slots.cta && (
-            <p
+            <span
               style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5em',
                 fontFamily: bodyFont,
-                fontSize: 'clamp(8px, 2.2%, 12px)',
+                fontSize: 'clamp(8px, 2.3%, 13px)',
                 color: lightColor,
-                opacity: 0.65,
-                textAlign,
+                opacity: 0.92,
                 textTransform: 'uppercase',
-                letterSpacing: '0.12em',
-                margin: 0,
+                letterSpacing: '0.1em',
+                padding: '1.6% 3.5%',
+                border: `1px solid rgba(255,255,255,0.4)`,
+                borderRadius: '999px',
+                alignSelf: layout_variant === 'center' ? 'center' : 'flex-start',
               }}
             >
               {slots.cta}
-            </p>
+              <span aria-hidden="true" style={{ fontSize: '1.1em', lineHeight: 1 }}>→</span>
+            </span>
           )}
         </div>
       </div>

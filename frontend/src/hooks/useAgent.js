@@ -21,6 +21,8 @@ export function useAgent(brandId) {
   const [question, setQuestion] = useState(null)
   const [error, setError] = useState(null)
   const [messages, setMessages] = useState([])
+  // "llm" when the orchestrator actually used the AI path, "heuristic" otherwise.
+  const [source, setSource] = useState(null)
 
   const run = useCallback(
     async (message) => {
@@ -46,6 +48,7 @@ export function useAgent(brandId) {
         const result = await api.agentRun(brandId, message)
         // Real trace from the backend (array of { label, ms }).
         setTrace(result.trace ?? [])
+        setSource(result.source ?? null)
 
         // Route the result by the classified intent.
         if (result.intent === 'create_campaign' && result.campaign) {
@@ -69,5 +72,5 @@ export function useAgent(brandId) {
     [brandId],
   )
 
-  return { run, trace, running, campaign, question, error, messages }
+  return { run, trace, running, campaign, question, error, messages, source }
 }
