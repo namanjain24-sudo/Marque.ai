@@ -112,6 +112,13 @@ export const api = {
     form.append("type", type)
     return requestForm(`/brands/${brandId}/assets`, form)
   },
+  // Brand-ify: restyle an uploaded image to the brand, score + store it.
+  brandifyAsset: (brandId, file, type = "other") => {
+    const form = new FormData()
+    form.append("image", file)
+    form.append("type", type)
+    return requestForm(`/brands/${brandId}/assets/brandify`, form)
+  },
   deleteAsset: (brandId, assetId) =>
     request(`/brands/${brandId}/assets/${assetId}`, { method: "DELETE" }),
 

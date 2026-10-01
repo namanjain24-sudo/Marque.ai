@@ -363,7 +363,7 @@ class LibraryAsset(BaseModel):
 
     id: str
     brand_id: str
-    source: Literal["upload", "rendered"] = "upload"
+    source: Literal["upload", "rendered", "brandified"] = "upload"
     type: AssetTypeT = "other"
     label: str = ""
     png_url: str | None = None

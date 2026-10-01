@@ -199,3 +199,76 @@ async def test_save_asset_heuristic_fallback_without_key(client, monkeypatch):
     assert body["signal_match"] == 50
     assert body["signal_verdict"] == "needs_fix"
     assert body["png_url"]
+
+
+# --- Brand-ify: restyle an upload to the brand ---------------------------
+
+def _png_data_url() -> str:
+    """A valid PNG as a data URL, the shape the image-edit model returns."""
+    import base64
+
+    b64 = base64.b64encode(TINY_PNG).decode("ascii")
+    return f"data:image/png;base64,{b64}"
+
+
+def _mock_image(httpx_mock):
+    httpx_mock.add_response(
+        url="https://openrouter.ai/api/v1/chat/completions",
+        json={"choices": [{"message": {"images": [{"image_url": {"url": _png_data_url()}}]}}]},
+    )
+
+
+async def test_brandify_creates_branded_asset(client, monkeypatch, httpx_mock, tmp_path):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("MARQUE_HERO_IMAGES", "1")
+    brand = await _create_brand(client)
+    # First call = brandify image, second = signal check on the result.
+    _mock_image(httpx_mock)
+    _mock_critic(httpx_mock)
+
+    resp = await client.post(
+        f"/v1/brands/{brand['id']}/assets/brandify",
+        files={"image": ("in.png", TINY_PNG, "image/png")},
+        data={"type": "other"},
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["source"] == "brandified"
+    assert isinstance(body["signal_match"], int)
+    assert body["png_url"].startswith("/media/")
+    assert (tmp_path / body["png_url"].split("/")[-1]).exists()
+
+
+async def test_brandify_503_when_flag_off(client, monkeypatch):
+    # Key present but image gen not opted in -> honest 503, no spend.
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.delenv("MARQUE_HERO_IMAGES", raising=False)
+    brand = await _create_brand(client)
+    resp = await client.post(
+        f"/v1/brands/{brand['id']}/assets/brandify",
+        files={"image": ("in.png", TINY_PNG, "image/png")},
+    )
+    assert resp.status_code == 503
+
+
+async def test_brandify_502_on_image_failure(client, monkeypatch, httpx_mock):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("MARQUE_HERO_IMAGES", "1")
+    brand = await _create_brand(client)
+    httpx_mock.add_response(url="https://openrouter.ai/api/v1/chat/completions", status_code=500, text="boom")
+    resp = await client.post(
+        f"/v1/brands/{brand['id']}/assets/brandify",
+        files={"image": ("in.png", TINY_PNG, "image/png")},
+    )
+    assert resp.status_code == 502
+
+
+async def test_brandify_422_on_bad_upload(client, monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("MARQUE_HERO_IMAGES", "1")
+    brand = await _create_brand(client)
+    resp = await client.post(
+        f"/v1/brands/{brand['id']}/assets/brandify",
+        files={"image": ("x.png", b"", "image/png")},
+    )
+    assert resp.status_code == 422
