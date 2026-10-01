@@ -53,6 +53,11 @@ export function AssetCard({ asset, showScore = true }) {
               {signal_match}
             </span>
           )}
+          {showScore && (signal_match === undefined || signal_match === null) && (
+            <span className="shrink-0 rounded-sm bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+              Signal not checked
+            </span>
+          )}
         </div>
 
         {/* Score bar */}

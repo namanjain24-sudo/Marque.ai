@@ -45,7 +45,6 @@ export function AssetPreview({ type = 'poster', slots = {}, knobs = {}, palette,
           aspectRatio: ASPECT[type] ?? '1 / 1',
           objectFit: 'cover',
           width: '100%',
-          maxWidth: '360px',
           margin: '0 auto',
           display: 'block',
         }}
@@ -89,7 +88,6 @@ export function AssetPreview({ type = 'poster', slots = {}, knobs = {}, palette,
         position: 'relative',
         overflow: 'hidden',
         width: '100%',
-        maxWidth: '360px',
         margin: '0 auto',
       }}
     >
