@@ -21,6 +21,8 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-marque}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_SIGNAL_MODEL: ${OPENROUTER_SIGNAL_MODEL:-qwen/qwen3-vl-32b-instruct}
     depends_on:
       db:
         condition: service_healthy

@@ -13,12 +13,14 @@ Product name is **Marque.ai** (the PRD's internal codename "BrandOS" is not used
 |---|---|
 | Infra: Docker (React + FastAPI + Postgres), CI, Azure VM deploy | ✅ Done, live at http://20.80.105.52/ |
 | Base setup: DB schema, Brand Profile contract | ✅ Done |
-| F1 — Brand Onboarding + Brand DNA | ✅ Done, thoroughly tested (backend only, no UI yet) |
+| F1 — Brand Onboarding + Brand DNA | ✅ Done, thoroughly tested |
 | F2 — Brand Memory | ✅ Done, thoroughly tested — found + fixed a real concurrency bug |
 | F3 — Brand Identity (light) | ✅ Done, thoroughly tested — found + fixed a matching concurrency bug |
 | F1+F2+F3 combined | ✅ Integration-tested together (same brand, multiple brands, persistence) |
-| Automated test suite | ✅ 71 pytest tests (`backend/tests/`), wired into CI with a Postgres service |
-| F4 and onwards | Not started |
+| **Frontend** | ✅ Real UI for F1-F3: marketing home, onboarding form, brand dashboard |
+| F4 — Brand Signaling + auto-fix (Check half) | ✅ Done, tested, verified against the live vision API — see below for what's intentionally not built yet |
+| Automated test suite | ✅ 89 pytest tests (`backend/tests/`), wired into CI with a Postgres service |
+| F5 and onwards (Asset Creator, Campaign Agent, agent core, ...) | Not started |
 
 ---
 
@@ -420,13 +422,136 @@ on top of this API:
 
 ---
 
+## Frontend (new this round)
+
+There was no real UI before this — just the Vite starter page. `frontend/src`
+now has an actual app: marketing home page, the F1 onboarding form, a brand
+dashboard (positioning, identity directions with apply, Do/Don't/Preferences
+editors), and the F4 Signal Check panel described below. React Router,
+Tailwind v4, self-hosted fonts (including the 5 identity templates' 8 Google
+Fonts, loaded on demand so the home page doesn't pay for all of them
+up front). No design-system dependency beyond that — plain components.
+
+Tested by hand against the real running stack end to end: created a brand
+("Tea Theory", a Bangalore café) through the onboarding form, applied an
+identity direction, added a memory rule, confirmed the dashboard, brands
+list, and home page's live demo-brand preview all update correctly. Caught
+and fixed three real bugs this surfaced that unit tests wouldn't have:
+an input that visually inverted its own width due to a `w-full` class
+clashing with `flex-1`, a long font name (`Playfair Display`) getting
+silently truncated in the identity card, and a motion transition that made
+the homepage's direction-switcher feel broken (card fully disappeared for
+~1s) because it reused a scroll-triggered reveal animation for a click
+interaction instead of an immediate one.
+
+No automated frontend test suite yet (no component/e2e test runner is wired
+up) — `npm run lint` and `npm run build` are clean and run in CI, but
+everything above was verified manually in a real browser against the real
+API, not asserted in a test file.
+
+## F4 — Brand Signaling + auto-fix
+
+The PRD's own star feature. Built the **Check** half for real; the **auto-fix
+loop** (revise style knobs → re-render → re-check, up to 2 rounds) is not
+built, because the thing it would revise and re-render — F5's asset
+renderer — doesn't exist yet. That's a real, acknowledged scope line, not an
+oversight: see "What's deliberately not built" below.
+
+- `backend/vision.py` — `check_signals(profile, image_bytes, mime, round)`.
+  Sends the image to a vision LLM (OpenRouter, `qwen/qwen3-vl-32b-instruct`
+  by your choice — cheap, vision-capable) with a fixed rubric (0/25/50/75/100
+  anchor descriptions per axis, authored from the PRD's own 0/100 poles in
+  Table 8, since the PRD names the technique but not the anchor text) and the
+  brand's target positioning, do/dont rules and meaning. Temperature 0, per
+  PRD Table 25's reliability trick for this exact risk ("signal critic gives
+  unstable scores").
+- The LLM is only ever trusted for the qualitative read (`detected` axis
+  values, `issue`, `evidence`, suggested `fix` knobs). `gaps`, `match` and
+  `verdict` are computed in plain Python from the LLM's `detected` vs the
+  brand's `target`, using PRD Table 9's formula exactly — same principle as
+  F1's deterministic `brand_dna.py`, never trust the model's own arithmetic.
+- **Found a real inconsistency in the PRD itself** while implementing this:
+  Section 9.4's worked example states `"match": 74` for detected
+  `{88,82,40,60}` against target `{70,80,75,55}`, but Table 9's own formula
+  (`100 - average absolute gap`) applied to those exact numbers gives `85`,
+  not `74`. The gaps and verdict in that example are internally consistent;
+  only the match number is off, so it reads as an arithmetic slip in a
+  hand-written illustrative example rather than a different intended
+  formula. Implemented Table 9's formula as written (the one place that
+  actually defines the rule) and have a test (`test_signal_math.py`) that
+  asserts the gaps/verdict from the PRD's own example match, but asserts the
+  *correct* match value (85), with a comment explaining the discrepancy —
+  flagging this rather than quietly picking one number felt like the honest
+  thing to do, same spirit as the F1/F3 "found and fixed" write-ups above.
+- Reliability per PRD Table 13 ("Invalid JSON from LLM"): the response is
+  validated against a strict Pydantic schema; on failure (bad JSON or wrong
+  shape), it retries once with the actual validation error appended to the
+  conversation so the model can self-correct, before giving up with a clear
+  502.
+- `POST /v1/brands/{id}/signal-check` — multipart upload (PNG/JPEG/WebP, 10
+  MB cap per PRD Table 21's upload-security rule), `round` form field
+  (1 or 2, per PRD's "max 2 rounds"). Checks *any* uploaded image against the
+  brand's targets — not a saved asset, because there's no asset/library
+  (F5/F8) to save one to yet. 404 on unknown brand, 503 if
+  `OPENROUTER_API_KEY` isn't set (distinct from 502 for an actual upstream
+  failure), 422 on a bad/oversized/empty file.
+- Frontend: `SignalCheckPanel` on the brand dashboard — upload an image, see
+  the PRD's own "score card" design (Section 12): match score, pass/needs-fix
+  badge, the 4 axes as target-vs-detected markers on a hairline (not filled
+  progress-bar tracks), the issue sentence, evidence bullets, suggested fix
+  knobs.
+
+### Tested
+
+- 18 new pytest tests. 7 are pure math/schema unit tests (no network): exact
+  match, the PRD worked example's gaps/verdict, the match formula, the
+  "match ≥ 80 AND no single axis gap > 20" pass condition (including a case
+  where a high match score must still fail because one axis blew past 20),
+  and that `FixKnobs` rejects values outside the PRD's closed knob
+  vocabulary (Table 14).
+- 11 are endpoint tests with the OpenRouter HTTP call mocked
+  (`pytest-httpx`): 404/422/503/502 cases, markdown-fenced JSON responses,
+  the retry-once-on-bad-JSON path (asserted by checking exactly 2 requests
+  were made), retry-exhausted still failing cleanly, an upstream HTTP error,
+  and the `round` field's 1-2 bound being enforced.
+- Also ran it for real, twice, against the live OpenRouter API (not
+  mocked): once as a standalone script calling `check_signals` directly, once
+  through the actual running Docker stack and the browser UI, both times with
+  a real downloaded photo against the seeded Burger Lab brand. The model
+  correctly identified the test image (a coffee mug) as unrelated to a
+  burger brand and referenced Burger Lab's actual `dont` rules in its
+  reasoning — confirms the brand context is really reaching the prompt, not
+  just that the API call succeeds.
+- Full suite (89 tests, all features) still green; `docker build` on the
+  backend still succeeds from a clean image.
+
+### What's deliberately not built
+
+- **The actual auto-fix loop** (apply the suggested knobs, re-render, re-check,
+  stop at 2 rounds or report the remaining gap per PRD Table 13). This needs
+  F5's renderer to have something to apply knobs to and re-render. Right now
+  `fix` is a real, schema-validated suggestion from the model — genuinely
+  useful on its own — but nothing in this codebase executes it yet.
+- **Rate limiting / daily spend cap** (PRD Table 21 names this as a real risk
+  for a public endpoint: "someone spams the public endpoint"). Not built —
+  there's no auth or per-IP tracking infra in the app yet. Worth knowing
+  before this goes anywhere public; a single bad actor could run the
+  (admittedly cheap) model a lot of times.
+- Signal-check results aren't persisted anywhere (no `runs` row, no asset
+  record) — consistent with F4 here checking an arbitrary upload rather than
+  a saved asset, but means there's no history yet.
+
+---
+
 ## Needs from you (manual steps)
 
-1. **LLM API key** (vision-capable, e.g. an Anthropic/OpenAI/Gemini key with
-   image support) — only needed if you want the PRD's literal "read a website
-   URL / logo / screenshots and extract real brand colours/fonts" version of
-   F1. Without it, onboarding uses the heuristic defaults described above,
-   which already work end-to-end. If you get a key, tell me which provider
-   and I'll wire it in as an optional enhancement (gated so onboarding still
-   works instantly if the key is ever missing/rate-limited).
-2. Nothing else blocking right now for F1–F3.
+1. ~~**LLM API key**~~ — done. You gave me an OpenRouter key, wired in for F4's
+   Signal Check only (`backend/.env` / root `.env`, both gitignored — the key
+   is not in git). Model is `qwen/qwen3-vl-32b-instruct` per your "cheap,
+   Chinese" ask; current OpenRouter pricing is about $0.10 per million input
+   tokens, so a single check (one image + a short brand context) is a small
+   fraction of a cent. Not wired into F1's onboarding extraction yet (that's
+   still the heuristic) — say if you want that too, it'd reuse the same key.
+2. **Rate limiting** for `/signal-check` before this is public anywhere —
+   see above. Not blocking for continued local development.
+3. Nothing else blocking right now.

@@ -1,5 +1,11 @@
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
+
+# Must run before `from db import ...` (and anything else reading
+# os.environ at import time) picks up its defaults.
+load_dotenv()
+
 from fastapi import FastAPI
 from sqlalchemy import text
 
@@ -7,6 +13,7 @@ from db import SessionLocal, engine
 from models import Base, Brand
 from routers.brands import router as brands_router
 from routers.identity import router as identity_router
+from routers.signal import router as signal_router
 from schemas import BrandProfile
 from seed import DEMO_BRAND_ID, DEMO_BRAND_PROFILE
 
@@ -32,6 +39,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Marque.ai", lifespan=lifespan)
 app.include_router(brands_router)
 app.include_router(identity_router)
+app.include_router(signal_router)
 
 
 @app.get("/")

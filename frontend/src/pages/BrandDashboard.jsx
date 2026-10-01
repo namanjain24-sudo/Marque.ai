@@ -6,6 +6,7 @@ import { Button } from "../components/Button"
 import { BrandIdentityCard } from "../components/BrandIdentityCard"
 import { Container } from "../components/Container"
 import { RuleList } from "../components/RuleList"
+import { SignalCheckPanel } from "../components/SignalCheckPanel"
 import { ApiError, api } from "../lib/api"
 import { directionLabel } from "../lib/fonts"
 
@@ -145,6 +146,10 @@ export function BrandDashboard() {
               <PositioningAxis key={axis} label={axis} value={profile.positioning[axis]} />
             ))}
           </div>
+        </div>
+
+        <div className="mt-14 border-t border-zinc-200 pt-10 dark:border-zinc-800">
+          <SignalCheckPanel brandId={id} />
         </div>
 
         {directions.length > 0 && (

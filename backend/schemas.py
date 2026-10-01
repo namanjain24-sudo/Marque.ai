@@ -2,6 +2,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
+from knobs import KNOB_VALUES, OVERLAY_RANGE
+
 # Reusable, bounded string types for public-facing input. Business identity
 # fields (name/category) are stripped and must be non-empty after stripping;
 # everything else just gets a sane upper bound so a public endpoint can't be
@@ -156,3 +158,65 @@ class BrandMemoryPatch(BaseModel):
     preferences: list[RuleStr] | None = Field(default=None, max_length=MAX_LIST_ITEMS * 2)
 
     _check_meaning = field_validator("meaning")(_validate_meaning)
+
+
+# --- F4: Brand Signaling + auto-fix (PRD Section 7 F4, Section 9.4) ---
+
+DensityT = Literal[tuple(KNOB_VALUES["density"])]
+FontStyleT = Literal[tuple(KNOB_VALUES["font_style"])]
+PhotoToneT = Literal[tuple(KNOB_VALUES["photo_tone"])]
+AccentUsageT = Literal[tuple(KNOB_VALUES["accent_usage"])]
+LayoutVariantT = Literal[tuple(KNOB_VALUES["layout_variant"])]
+
+
+class FixKnobs(BaseModel):
+    """Style knobs the fix loop is allowed to change (PRD 9.3 / Table 14). All
+    optional - the critic only suggests the knobs it has an opinion on."""
+
+    density: DensityT | None = None
+    font_style: FontStyleT | None = None
+    photo_tone: PhotoToneT | None = None
+    accent_usage: AccentUsageT | None = None
+    overlay: float | None = Field(default=None, ge=OVERLAY_RANGE[0], le=OVERLAY_RANGE[1])
+    layout_variant: LayoutVariantT | None = None
+
+
+class SignalGaps(BaseModel):
+    """detected - target per axis. Signed, unlike Positioning (PRD 9.4 example: playful gap -35)."""
+
+    premium: int = Field(ge=-100, le=100)
+    modern: int = Field(ge=-100, le=100)
+    playful: int = Field(ge=-100, le=100)
+    niche: int = Field(ge=-100, le=100)
+
+
+class VisionCriticResponse(BaseModel):
+    """The exact shape the vision LLM must return. Validating against this
+    (and retrying once on failure - PRD Table 13 "Invalid JSON from LLM") is
+    the schema-validation half of the reliability trick; temperature 0 and a
+    fixed rubric (vision.py) are the other half (PRD Table 25)."""
+
+    detected: Positioning
+    issue: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
+    evidence: list[Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]] = Field(
+        min_length=1, max_length=5
+    )
+    fix: FixKnobs
+
+
+class SignalResult(BaseModel):
+    """PRD Section 9.4. `gaps`, `match` and `verdict` are computed in code from
+    the LLM's `detected` vs the brand's `target` (PRD Table 9's formula) -
+    never taken from the LLM directly, the same reliability principle as F1's
+    deterministic brand_dna.py. No `asset_id`: F4 here checks any uploaded
+    image, not a stored asset - there's no asset library yet (F5/F8)."""
+
+    round: int = Field(ge=1, le=2, default=1)
+    detected: Positioning
+    target: Positioning
+    gaps: SignalGaps
+    match: int = Field(ge=0, le=100)
+    verdict: Literal["pass", "needs_fix"]
+    issue: str
+    evidence: list[str]
+    fix: FixKnobs

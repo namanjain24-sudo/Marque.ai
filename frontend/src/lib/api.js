@@ -47,6 +47,28 @@ async function request(path, options = {}) {
   return res.json()
 }
 
+// Separate from request(): a multipart body must NOT get a manual
+// Content-Type, or fetch can't attach its own boundary.
+async function requestForm(path, formData) {
+  const res = await fetch(`${BASE}${path}`, { method: "POST", body: formData })
+
+  if (!res.ok) {
+    let body = null
+    try {
+      body = await res.json()
+    } catch {
+      // non-JSON error body
+    }
+    const message = readableDetail(
+      body?.detail,
+      res.status === 404 ? "Not found." : "Something went wrong. Please try again.",
+    )
+    throw new ApiError(message, res.status, body?.detail)
+  }
+
+  return res.json()
+}
+
 export const api = {
   createBrand: (payload) => request("/brands", { method: "POST", body: JSON.stringify(payload) }),
   listBrands: ({ limit = 100, offset = 0 } = {}) =>
@@ -65,4 +87,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ key, ...(fields ? { fields } : {}) }),
     }),
+  checkSignal: (id, file, round = 1) => {
+    const form = new FormData()
+    form.append("image", file)
+    form.append("round", String(round))
+    return requestForm(`/brands/${id}/signal-check`, form)
+  },
 }
