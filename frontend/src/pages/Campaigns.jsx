@@ -13,10 +13,17 @@ const STATUS_STYLE = {
 export function Campaigns() {
   const { brand } = useBrand()
   const [campaigns, setCampaigns] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     if (!brand?.id) return
-    api.listCampaigns(brand.id).then(setCampaigns).catch(() => {})
+    let cancelled = false
+    api
+      .listCampaigns(brand.id)
+      .then((data) => { if (!cancelled) { setCampaigns(data); setLoading(false); setError(null) } })
+      .catch((err) => { if (!cancelled) { setError(err.message ?? "Could not load campaigns."); setLoading(false) } })
+    return () => { cancelled = true }
   }, [brand?.id])
 
   return (
@@ -25,8 +32,21 @@ export function Campaigns() {
         <h1 className="font-display text-2xl font-bold text-zinc-900 dark:text-zinc-50">Campaigns</h1>
         <p className="mt-1 text-[15px] text-zinc-500 dark:text-zinc-500">{campaigns.length} campaigns</p>
 
+        {error && (
+          <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
+            {error}
+          </p>
+        )}
+
+        {loading && (
+          <div className="mt-8 flex items-center gap-3 text-[14px] text-zinc-500 dark:text-zinc-500">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-700 border-t-transparent" />
+            Loading campaigns…
+          </div>
+        )}
+
         <div className="mt-8 border border-zinc-200 dark:border-zinc-800">
-          {campaigns.length === 0 && (
+          {!loading && campaigns.length === 0 && !error && (
             <p className="p-6 text-[15px] text-zinc-400 dark:text-zinc-600">No campaigns yet.</p>
           )}
           {campaigns.map((c, i) => (

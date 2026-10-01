@@ -8,6 +8,7 @@ import { Container } from "../components/Container"
 import { Toast, useToast } from "../components/Toast"
 import { useBrand } from "../context/BrandContext"
 import { useAutoFix } from "../hooks/useAutoFix"
+import { rasterize } from "../lib/rasterize"
 import campaignData from "../mock/campaign.json"
 import { rulesStatusList } from "../lib/rules"
 
@@ -46,6 +47,7 @@ export function Editor() {
 
   const previewRef = useRef(null)
   const { run, rounds, running, error, reset } = useAutoFix(brand?.id)
+  const [exporting, setExporting] = useState(false)
 
   function updateSlot(key, value) {
     setSlots((s) => ({ ...s, [key]: value }))
@@ -53,6 +55,24 @@ export function Editor() {
 
   function updateKnob(key, value) {
     setKnobs((k) => ({ ...k, [key]: value }))
+  }
+
+  async function exportPng() {
+    if (exporting || !previewRef.current) return
+    setExporting(true)
+    try {
+      const file = await rasterize(previewRef.current, { name: `${slots.headline ?? "asset"}.png` })
+      const url = URL.createObjectURL(file)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = file.name
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      showToast(err.message ?? "Export failed.", "info")
+    } finally {
+      setExporting(false)
+    }
   }
 
   // Real F4 auto-fix loop: rasterize the live preview, check it, and if it
@@ -85,10 +105,11 @@ export function Editor() {
             </button>
             <button
               type="button"
-              onClick={() => showToast("Export will work after backend is connected.", "info")}
-              className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+              onClick={exportPng}
+              disabled={exporting}
+              className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:pointer-events-none disabled:opacity-50"
             >
-              Export PNG
+              {exporting ? "Exporting…" : "Export PNG"}
             </button>
           </div>
         </div>

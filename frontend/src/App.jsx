@@ -11,9 +11,6 @@ import { Onboard } from "./pages/Onboard"
 import { Brands } from "./pages/Brands"
 import { BrandDashboard } from "./pages/BrandDashboard"
 
-// New onboarding (mock-only, no backend)
-import { Onboarding } from "./pages/Onboarding"
-
 // App pages (inside AppLayout)
 import { Brand } from "./pages/Brand"
 import { Workspace } from "./pages/Workspace"
@@ -40,7 +37,6 @@ function App() {
         {/* Marketing / public routes */}
         <Route path="/" element={<MarketingLayout><Home /></MarketingLayout>} />
         <Route path="/onboard" element={<MarketingLayout><Onboard /></MarketingLayout>} />
-        <Route path="/onboarding" element={<MarketingLayout><Onboarding /></MarketingLayout>} />
         <Route path="/brands" element={<MarketingLayout><Brands /></MarketingLayout>} />
         <Route path="/brand/:id" element={<MarketingLayout><BrandDashboard /></MarketingLayout>} />
 

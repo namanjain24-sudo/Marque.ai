@@ -146,7 +146,19 @@ def build_report(profile: BrandProfile, reads: list[VisionAuditResponse]) -> Aud
     )
 
 
+# Max concurrent paid vision calls per audit run. Without this, a 5-image
+# upload would fan out 5 simultaneous requests; a semaphore keeps the burst
+# predictable and avoids rate-limit spikes on the OpenRouter side.
+_AUDIT_CONCURRENCY = 3
+
+
 async def run_audit(profile: BrandProfile, images: list[bytes]) -> AuditReport:
-    """Analyse every image concurrently, then build the report deterministically."""
-    reads = await asyncio.gather(*(analyse_asset(profile, img) for img in images))
+    """Analyse every image concurrently (bounded), then build the report deterministically."""
+    sem = asyncio.Semaphore(_AUDIT_CONCURRENCY)
+
+    async def _bounded(img: bytes) -> VisionAuditResponse:
+        async with sem:
+            return await analyse_asset(profile, img)
+
+    reads = await asyncio.gather(*(_bounded(img) for img in images))
     return build_report(profile, list(reads))

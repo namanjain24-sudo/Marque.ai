@@ -10,11 +10,29 @@ import { api } from "../lib/api"
 export function CampaignDetail() {
   const { id } = useParams()
   const [campaign, setCampaign] = useState(null)
-  const { toast, showToast, hideToast } = useToast()
+  const [loadError, setLoadError] = useState(null)
+  const { toast, hideToast } = useToast()
 
   useEffect(() => {
-    api.getCampaign(id).then(setCampaign).catch(() => {})
+    let cancelled = false
+    api
+      .getCampaign(id)
+      .then((data) => { if (!cancelled) { setCampaign(data); setLoadError(null) } })
+      .catch((err) => { if (!cancelled) setLoadError(err.message ?? "Could not load campaign.") })
+    return () => { cancelled = true }
   }, [id])
+
+  if (loadError) {
+    return (
+      <div className="py-10">
+        <Container>
+          <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
+            {loadError}
+          </p>
+        </Container>
+      </div>
+    )
+  }
 
   if (!campaign) {
     return (
@@ -41,9 +59,9 @@ export function CampaignDetail() {
           </div>
           <button
             type="button"
-            title="Connect backend later"
-            onClick={() => showToast("Export will work after backend is connected.", "info")}
-            className="inline-flex items-center gap-2 rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:border-zinc-400 dark:border-zinc-700 dark:text-zinc-300"
+            disabled
+            title="Open each asset in the Editor to export individually"
+            className="inline-flex items-center gap-2 rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 opacity-50 dark:border-zinc-700 dark:text-zinc-300"
           >
             <DownloadSimple size={15} />
             Export all

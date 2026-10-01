@@ -2,7 +2,7 @@
 import { ArrowSquareOut, ArrowsClockwise } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { AssetPreview } from './AssetPreview'
-import brandData from '../mock/brand.json'
+import { useBrand } from '../context/BrandContext'
 
 const TYPE_LABELS = {
   poster: 'Poster',
@@ -13,6 +13,7 @@ const TYPE_LABELS = {
 }
 
 export function AssetCard({ asset, showScore = true }) {
+  const { brand } = useBrand()
   const { id, type, label, size, signal_match, signal_verdict, slots, knobs, png_url } = asset
   const pass = signal_verdict === 'pass'
 
@@ -24,8 +25,8 @@ export function AssetCard({ asset, showScore = true }) {
           type={type}
           slots={slots}
           knobs={knobs}
-          palette={brandData.palette}
-          fonts={brandData.fonts}
+          palette={brand.palette}
+          fonts={brand.fonts}
           pngUrl={png_url}
         />
       </div>
@@ -52,6 +53,11 @@ export function AssetCard({ asset, showScore = true }) {
               {signal_match}
             </span>
           )}
+          {showScore && (signal_match === undefined || signal_match === null) && (
+            <span className="shrink-0 rounded-sm bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+              Signal not checked
+            </span>
+          )}
         </div>
 
         {/* Score bar */}
@@ -75,7 +81,9 @@ export function AssetCard({ asset, showScore = true }) {
           </Link>
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 px-3 py-1.5 text-[13px] font-medium text-zinc-700 hover:border-zinc-400 dark:border-zinc-700 dark:text-zinc-300"
+            disabled
+            title="Open in Editor to run a full signal check"
+            className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 px-3 py-1.5 text-[13px] font-medium text-zinc-700 opacity-50 dark:border-zinc-700 dark:text-zinc-300"
           >
             <ArrowsClockwise size={13} />
             Re-check
