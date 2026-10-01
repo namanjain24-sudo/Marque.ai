@@ -1,7 +1,8 @@
 // pages/Library.jsx — filter tabs, search, asset grid with brand health strip.
 // Real data: assets saved via Signal Check (save-on-check), alerts from the
 // latest brand audit.
-import { useEffect, useMemo, useState } from "react"
+import { X } from "@phosphor-icons/react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { AssetCard } from "../components/AssetCard"
 import { Container } from "../components/Container"
 import { api } from "../lib/api"
@@ -24,15 +25,41 @@ export function Library() {
   const [alerts, setAlerts] = useState([])
   const [activeTab, setActiveTab] = useState("All")
   const [search, setSearch] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!brand?.id) return
-    api.listAssets(brand.id).then(setAssets).catch(() => setAssets([]))
+    setLoading(true)
+    setLoadError(null)
+    api
+      .listAssets(brand.id)
+      .then((list) => setAssets(list ?? []))
+      .catch((err) => setLoadError(err.message ?? "Could not load assets."))
+      .finally(() => setLoading(false))
     api
       .listAudits(brand.id)
       .then((audits) => setAlerts(audits?.[0]?.report?.alerts ?? []))
       .catch(() => setAlerts([]))
   }, [brand?.id])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  async function removeAsset(assetId) {
+    if (!brand?.id || deletingId) return
+    setDeletingId(assetId)
+    try {
+      await api.deleteAsset(brand.id, assetId)
+      setAssets((list) => list.filter((a) => a.id !== assetId))
+    } catch {
+      // Keep the card; the next list refresh will reconcile.
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const filtered = useMemo(() => {
     let list = assets
@@ -104,12 +131,45 @@ export function Library() {
           />
         </div>
 
+        {/* Error state */}
+        {loadError && !loading && (
+          <div className="mt-8 flex items-center justify-between gap-4 border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300">
+            <span>{loadError}</span>
+            <button
+              type="button"
+              onClick={load}
+              className="rounded-md border border-amber-300 px-3 py-1 font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:text-amber-300"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Grid */}
         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {filtered.map((asset) => (
-            <AssetCard key={asset.id} asset={asset} />
-          ))}
-          {filtered.length === 0 && (
+          {loading &&
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-40 animate-pulse border border-zinc-200 dark:border-zinc-800" />
+            ))}
+
+          {!loading &&
+            !loadError &&
+            filtered.map((asset) => (
+              <div key={asset.id} className="group relative">
+                <button
+                  type="button"
+                  onClick={() => removeAsset(asset.id)}
+                  disabled={deletingId === asset.id}
+                  aria-label="Delete asset"
+                  className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-sm border border-zinc-200 bg-white/90 text-zinc-500 opacity-0 transition-opacity hover:text-red-600 disabled:opacity-40 group-hover:opacity-100 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-400"
+                >
+                  <X size={13} weight="bold" />
+                </button>
+                <AssetCard asset={asset} />
+              </div>
+            ))}
+
+          {!loading && !loadError && filtered.length === 0 && (
             <p className="col-span-4 py-8 text-center text-[15px] text-zinc-400 dark:text-zinc-600">
               {assets.length === 0
                 ? "No saved assets yet — run a Signal Check and hit Save to library."
