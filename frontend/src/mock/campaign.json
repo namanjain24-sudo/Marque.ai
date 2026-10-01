@@ -1,0 +1,274 @@
+{
+  "campaigns": [
+    {
+      "id": "camp_truffle",
+      "name": "Truffle Burger Weekend",
+      "objective": "Drive weekend footfall and online orders for the new Truffle Burger at ₹399.",
+      "core_message": "Truffle Burger. ₹399. Weekend only.",
+      "status": "Ready",
+      "date": "2026-09-28",
+      "assets": [
+        {
+          "id": "asset_truffle_poster",
+          "type": "poster",
+          "label": "Poster",
+          "size": "1080×1350",
+          "signal_match": 91,
+          "signal_verdict": "pass",
+          "slots": {
+            "headline": "Truffle Burger. Bas ek bite.",
+            "subline": "Naya. Rich. Weekend only.",
+            "price": "₹399",
+            "cta": "Order on WhatsApp",
+            "logo": "Burger Lab",
+            "hero_image": null
+          },
+          "knobs": {
+            "density": "open",
+            "font_style": "display_bold",
+            "photo_tone": "warm",
+            "accent_usage": 0.7,
+            "overlay": 0.4,
+            "layout_variant": "left"
+          }
+        },
+        {
+          "id": "asset_truffle_post",
+          "type": "post",
+          "label": "Instagram post",
+          "size": "1080×1080",
+          "signal_match": 91,
+          "signal_verdict": "pass",
+          "slots": {
+            "headline": "Truffle Burger. Bas ek bite.",
+            "subline": "₹399 · This weekend only",
+            "price": "₹399",
+            "cta": "Link in bio",
+            "logo": "Burger Lab",
+            "hero_image": null
+          },
+          "knobs": {
+            "density": "balanced",
+            "font_style": "display_bold",
+            "photo_tone": "warm",
+            "accent_usage": 0.6,
+            "overlay": 0.35,
+            "layout_variant": "center"
+          }
+        },
+        {
+          "id": "asset_truffle_story",
+          "type": "story",
+          "label": "Story",
+          "size": "1080×1920",
+          "signal_match": 88,
+          "signal_verdict": "pass",
+          "slots": {
+            "headline": "Truffle Burger.",
+            "subline": "Weekend only. ₹399.",
+            "price": "₹399",
+            "cta": "Swipe up to order",
+            "logo": "Burger Lab",
+            "hero_image": null
+          },
+          "knobs": {
+            "density": "open",
+            "font_style": "display_bold",
+            "photo_tone": "warm",
+            "accent_usage": 0.8,
+            "overlay": 0.5,
+            "layout_variant": "center"
+          }
+        },
+        {
+          "id": "asset_truffle_wa",
+          "type": "whatsapp",
+          "label": "WhatsApp creative",
+          "size": "1080×1080",
+          "signal_match": 85,
+          "signal_verdict": "pass",
+          "slots": {
+            "headline": "Truffle Burger. Bas ek bite.",
+            "subline": "Naya. Rich. Weekend only.",
+            "price": "₹399",
+            "cta": "Order on WhatsApp",
+            "logo": "Burger Lab",
+            "hero_image": null
+          },
+          "knobs": {
+            "density": "balanced",
+            "font_style": "clean_sans",
+            "photo_tone": "warm",
+            "accent_usage": 0.5,
+            "overlay": 0.3,
+            "layout_variant": "split"
+          }
+        }
+      ]
+    },
+    {
+      "id": "camp_diwali",
+      "name": "Diwali Combo Offer",
+      "objective": "Promote 20% off on all combos during Diwali week.",
+      "core_message": "Diwali ke liye, 20% off on every combo. Sirf is hafte.",
+      "status": "Draft",
+      "date": "2026-10-15",
+      "assets": [
+        {
+          "id": "asset_diwali_poster",
+          "type": "poster",
+          "label": "Poster",
+          "size": "1080×1350",
+          "signal_match": 78,
+          "signal_verdict": "needs_fix",
+          "slots": {
+            "headline": "Diwali Combo Offer.",
+            "subline": "20% off. This week only.",
+            "price": "From ₹299",
+            "cta": "Order now",
+            "logo": "Burger Lab",
+            "hero_image": null
+          },
+          "knobs": {
+            "density": "balanced",
+            "font_style": "display_bold",
+            "photo_tone": "warm",
+            "accent_usage": 0.6,
+            "overlay": 0.4,
+            "layout_variant": "center"
+          }
+        },
+        {
+          "id": "asset_diwali_post",
+          "type": "post",
+          "label": "Instagram post",
+          "size": "1080×1080",
+          "signal_match": 80,
+          "signal_verdict": "pass",
+          "slots": {
+            "headline": "Happy Diwali. Sab ko combo.",
+            "subline": "20% off this week.",
+            "price": "From ₹299",
+            "cta": "Order on WhatsApp",
+            "logo": "Burger Lab",
+            "hero_image": null
+          },
+          "knobs": {
+            "density": "balanced",
+            "font_style": "display_bold",
+            "photo_tone": "warm",
+            "accent_usage": 0.7,
+            "overlay": 0.4,
+            "layout_variant": "center"
+          }
+        },
+        {
+          "id": "asset_diwali_story",
+          "type": "story",
+          "label": "Story",
+          "size": "1080×1920",
+          "signal_match": 76,
+          "signal_verdict": "needs_fix",
+          "slots": {
+            "headline": "Diwali Combo.",
+            "subline": "20% off · This week.",
+            "price": "From ₹299",
+            "cta": "Swipe up",
+            "logo": "Burger Lab",
+            "hero_image": null
+          },
+          "knobs": {
+            "density": "open",
+            "font_style": "display_bold",
+            "photo_tone": "warm",
+            "accent_usage": 0.6,
+            "overlay": 0.45,
+            "layout_variant": "center"
+          }
+        },
+        {
+          "id": "asset_diwali_wa",
+          "type": "whatsapp",
+          "label": "WhatsApp creative",
+          "size": "1080×1080",
+          "signal_match": 82,
+          "signal_verdict": "pass",
+          "slots": {
+            "headline": "Diwali Combo. 20% off.",
+            "subline": "This week only.",
+            "price": "From ₹299",
+            "cta": "Order on WhatsApp",
+            "logo": "Burger Lab",
+            "hero_image": null
+          },
+          "knobs": {
+            "density": "balanced",
+            "font_style": "clean_sans",
+            "photo_tone": "warm",
+            "accent_usage": 0.5,
+            "overlay": 0.3,
+            "layout_variant": "split"
+          }
+        }
+      ]
+    },
+    {
+      "id": "camp_saket",
+      "name": "Saket Opening",
+      "objective": "Announce new Burger Lab outlet opening in Saket.",
+      "core_message": "Burger Lab ab Saket mein. Opening this month.",
+      "status": "Ready",
+      "date": "2026-09-10",
+      "assets": [
+        {
+          "id": "asset_saket_poster",
+          "type": "poster",
+          "label": "Poster",
+          "size": "1080×1350",
+          "signal_match": 93,
+          "signal_verdict": "pass",
+          "slots": {
+            "headline": "Saket mein ab Burger Lab.",
+            "subline": "Opening this month.",
+            "price": null,
+            "cta": "Visit us",
+            "logo": "Burger Lab",
+            "hero_image": null
+          },
+          "knobs": {
+            "density": "open",
+            "font_style": "display_bold",
+            "photo_tone": "cool",
+            "accent_usage": 0.8,
+            "overlay": 0.5,
+            "layout_variant": "center"
+          }
+        },
+        {
+          "id": "asset_saket_post",
+          "type": "post",
+          "label": "Instagram post",
+          "size": "1080×1080",
+          "signal_match": 89,
+          "signal_verdict": "pass",
+          "slots": {
+            "headline": "New. Saket.",
+            "subline": "Burger Lab is opening in Saket this month.",
+            "price": null,
+            "cta": "Swipe to see more",
+            "logo": "Burger Lab",
+            "hero_image": null
+          },
+          "knobs": {
+            "density": "balanced",
+            "font_style": "display_bold",
+            "photo_tone": "cool",
+            "accent_usage": 0.7,
+            "overlay": 0.4,
+            "layout_variant": "left"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "round1": {
+    "match": 74,
+    "verdict": "needs_fix",
+    "target": { "premium": 70, "modern": 80, "playful": 75, "niche": 55 },
+    "detected": { "premium": 88, "modern": 82, "playful": 40, "niche": 60 },
+    "gaps": { "premium": 18, "modern": 2, "playful": -35, "niche": 5 },
+    "issue": "The poster reads as premium and modern but loses the playful energy that makes Burger Lab distinct.",
+    "evidence": [
+      "Headline font: Display bold — high confidence, low warmth",
+      "Photo tone: cool — reduces appetite cue",
+      "No brand red visible above the fold"
+    ],
+    "fix": {
+      "font_style": "display_bold",
+      "photo_tone": "warm",
+      "accent_usage": 0.7,
+      "overlay": 0.4
+    }
+  },
+  "round2": {
+    "match": 91,
+    "verdict": "pass",
+    "target": { "premium": 70, "modern": 80, "playful": 75, "niche": 55 },
+    "detected": { "premium": 72, "modern": 79, "playful": 73, "niche": 57 },
+    "gaps": { "premium": 2, "modern": -1, "playful": -2, "niche": 2 },
+    "issue": "All four axes are within acceptable range. Brand rules satisfied.",
+    "evidence": [
+      "Bolder headline adds visual energy",
+      "Warmer photo tone improves appetite cue",
+      "Red accent visible and prominent"
+    ],
+    "fix": {}
+  }
+}

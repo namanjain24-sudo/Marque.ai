@@ -1,0 +1,13 @@
+{
+  "consistency_score": 52,
+  "summary": "4 font styles, 3 colour treatments",
+  "issues": [
+    "Inconsistent headline font — 4 different families across 5 assets",
+    "Colour palette varies: 3 treatments, only 1 uses brand red correctly",
+    "2 assets use photography that does not match the brand photography rule"
+  ],
+  "alerts": [
+    "2 assets break your photography rule",
+    "Headline font inconsistency detected"
+  ]
+}

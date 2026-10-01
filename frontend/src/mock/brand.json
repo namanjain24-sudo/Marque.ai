@@ -1,0 +1,27 @@
+{
+  "id": "brand_burgerlab",
+  "name": "Burger Lab",
+  "category": "Restaurant, Burgers",
+  "city": "Delhi",
+  "audience": "18-30, urban, food-conscious",
+  "price_level": 2,
+  "positioning": { "premium": 70, "modern": 80, "playful": 75, "niche": 55 },
+  "personality": ["bold", "playful", "experimental"],
+  "palette": {
+    "primary": "#E63946",
+    "secondary": "#111111",
+    "accent": "#F1FAEE",
+    "light": "#FFFFFF",
+    "dark": "#0B0B0B"
+  },
+  "fonts": { "heading": "Bebas Neue", "body": "Inter" },
+  "voice": { "language": "Hinglish", "tone": "short, cheeky, no corporate words" },
+  "meaning": {
+    "black": "confidence",
+    "red": "energy",
+    "tight type": "modern"
+  },
+  "do": ["product close-ups", "high contrast", "price in a badge"],
+  "dont": ["stock photos", "neon gradients", "corporate tone", "the word delicious"],
+  "preferences": ["Hinglish preferred", "Weekend-specific offers work well"]
+}

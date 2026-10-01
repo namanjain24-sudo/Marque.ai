@@ -11,14 +11,26 @@ export function Nav() {
         <Link to="/" aria-label="Marque.ai home">
           <Logo />
         </Link>
-        <nav className="flex items-center gap-6">
+        <nav className="flex items-center gap-5">
           <Link
             to="/brands"
             className="hidden text-[15px] font-medium text-zinc-600 transition-colors hover:text-zinc-900 sm:inline dark:text-zinc-400 dark:hover:text-zinc-100"
           >
             Live brands
           </Link>
-          <Button to="/onboard" className="px-4 py-2 text-sm">
+          <Link
+            to="/workspace"
+            className="hidden text-[15px] font-medium text-zinc-600 transition-colors hover:text-zinc-900 sm:inline dark:text-zinc-400 dark:hover:text-zinc-100"
+          >
+            Workspace
+          </Link>
+          <Link
+            to="/library"
+            className="hidden text-[15px] font-medium text-zinc-600 transition-colors hover:text-zinc-900 sm:inline dark:text-zinc-400 dark:hover:text-zinc-100"
+          >
+            Library
+          </Link>
+          <Button to="/onboarding" className="px-4 py-2 text-sm">
             Get started
           </Button>
         </nav>

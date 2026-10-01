@@ -2,13 +2,18 @@ import { Barbell, Check, Coffee, Scissors, TShirt, X } from "@phosphor-icons/rea
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useEffect, useState } from "react"
 
+import { AssetPreview } from "../components/AssetPreview"
 import { BrandIdentityCard } from "../components/BrandIdentityCard"
 import { Button } from "../components/Button"
 import { Container } from "../components/Container"
 import { Reveal } from "../components/Reveal"
+import { SignalCard } from "../components/SignalCard"
+import { TracePanel } from "../components/TracePanel"
 import { demoDirections, demoProfile, DEMO_BRAND_ID } from "../data/demoBrand"
-import { api } from "../lib/api"
+import { mockApi } from "../lib/mockApi"
 import { directionLabel } from "../lib/fonts"
+import campaignData from "../mock/campaign.json"
+import traceEvents from "../mock/trace.json"
 
 const CAPABILITIES = [
   {
@@ -26,6 +31,31 @@ const CAPABILITIES = [
   },
 ]
 
+const ASSET_STEPS = [
+  {
+    icon: "01",
+    title: "Give one goal.",
+    body: 'Say what you\'re launching, like "truffle burger at ₹399 this weekend".',
+  },
+  {
+    icon: "02",
+    title: "Get four assets.",
+    body: "Poster, Instagram post, story and WhatsApp creative, all sharing one message and price.",
+  },
+  {
+    icon: "03",
+    title: "Approve and export.",
+    body: "You edit, approve and download. Marque.ai never posts for you.",
+  },
+]
+
+const FORMAT_TABS = [
+  { key: "poster", label: "Poster", size: "1080×1350" },
+  { key: "post", label: "Instagram", size: "1080×1080" },
+  { key: "story", label: "Story", size: "1080×1920" },
+  { key: "whatsapp", label: "WhatsApp", size: "1080×1080" },
+]
+
 const CATEGORIES = [
   { label: "Restaurants & cafes", icon: Coffee, tint: "bg-emerald-50 dark:bg-emerald-950/40" },
   { label: "D2C & fashion", icon: TShirt, tint: "bg-zinc-100 dark:bg-zinc-900" },
@@ -33,34 +63,71 @@ const CATEGORIES = [
   { label: "Salons & services", icon: Scissors, tint: "bg-emerald-50 dark:bg-emerald-950/40" },
 ]
 
+// Demo asset from campaign mock
+const DEMO_ASSET = campaignData.campaigns[0].assets[0]
+
 export function Home() {
   const [profile, setProfile] = useState(demoProfile)
   const [directions, setDirections] = useState(demoDirections)
   const [activeDirection, setActiveDirection] = useState(0)
+  const [activeFormat, setActiveFormat] = useState("poster")
+  const [traceLog, setTraceLog] = useState([])
+  const [tracePlaying, setTracePlaying] = useState(false)
   const reduce = useReducedMotion()
 
   useEffect(() => {
     let cancelled = false
-    api
+    mockApi
       .getBrand(DEMO_BRAND_ID)
       .then((live) => !cancelled && setProfile(live))
       .catch(() => {})
-    api
+    mockApi
       .getIdentityDirections(DEMO_BRAND_ID)
       .then((live) => !cancelled && live.length && setDirections(live))
       .catch(() => {})
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [])
 
+  // Auto-play trace loop for the "Watch it work" section
+  useEffect(() => {
+    let i = 0
+    let cancelled = false
+    setTracePlaying(true)
+
+    function tick() {
+      if (cancelled) return
+      if (i < traceEvents.length) {
+        setTraceLog((prev) => [...prev, traceEvents[i]])
+        i++
+        setTimeout(tick, 800)
+      } else {
+        // reset and loop after pause
+        setTimeout(() => {
+          if (!cancelled) {
+            setTraceLog([])
+            i = 0
+            setTimeout(tick, 600)
+          }
+        }, 3000)
+      }
+    }
+
+    if (!reduce) {
+      setTimeout(tick, 1200)
+    } else {
+      setTraceLog(traceEvents)
+      setTracePlaying(false)
+    }
+
+    return () => { cancelled = true }
+  }, [reduce])
+
   const selected = directions[activeDirection] ?? directions[0]
+  const activeFormatTab = FORMAT_TABS.find((t) => t.key === activeFormat) ?? FORMAT_TABS[0]
 
   return (
     <>
-      {/* Hero: asymmetric split. Left carries the value prop, right is a real,
-          live BrandIdentityCard (the same component the dashboard uses) so the
-          first thing a visitor sees is actual product output, not a mockup. */}
+      {/* ── Hero ─────────────────────────────────────────────────────── */}
       <section className="pt-16 pb-20 sm:pt-20 lg:pb-28">
         <Container className="grid items-center gap-12 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
           <div>
@@ -72,7 +139,7 @@ export function Home() {
               added to it afterward.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
-              <Button to="/onboard">Get started</Button>
+              <Button to="/onboarding">Get started</Button>
               <Button to={`/brand/${DEMO_BRAND_ID}`} variant="secondary">
                 See a live brand
               </Button>
@@ -86,7 +153,7 @@ export function Home() {
         </Container>
       </section>
 
-      {/* What it does: a divided, unevenly-weighted strip, not three equal cards. */}
+      {/* ── What Marque.ai does ───────────────────────────────────────── */}
       <section className="border-y border-zinc-200 py-16 dark:border-zinc-800">
         <Container>
           <Reveal>
@@ -109,10 +176,37 @@ export function Home() {
         </Container>
       </section>
 
-      {/* Try it: centered stack, not another split, so the page doesn't fall
-          into a left-text/right-visual rhythm. Switching direction is a real
-          state change against the live API data fetched above. */}
-      <section className="py-20">
+      {/* ── SECTION A: From one goal to four assets ───────────────────── */}
+      <section className="py-16">
+        <Container>
+          <Reveal>
+            <h2 className="font-display text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+              From one goal to four assets
+            </h2>
+            <p className="mt-3 max-w-[52ch] text-[15px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+              Describe what you want to promote. Marque.ai handles the rest.
+            </p>
+          </Reveal>
+          <div className="mt-10 grid gap-10 divide-zinc-200 md:grid-cols-3 md:gap-0 md:divide-x dark:divide-zinc-800">
+            {ASSET_STEPS.map((step, i) => (
+              <Reveal key={step.icon} delay={i * 0.08} className={i > 0 ? "md:pl-10" : "md:pr-10"}>
+                <p className="font-mono text-[11px] uppercase tracking-widest text-emerald-700 dark:text-emerald-500">
+                  {step.icon}
+                </p>
+                <h3 className="mt-2 font-display text-lg font-bold text-zinc-900 dark:text-zinc-50">
+                  {step.title}
+                </h3>
+                <p className="mt-2 max-w-[38ch] text-[15px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+                  {step.body}
+                </p>
+              </Reveal>
+            ))}
+          </div>
+        </Container>
+      </section>
+
+      {/* ── Two directions ────────────────────────────────────────────── */}
+      <section className="border-y border-zinc-200 py-20 dark:border-zinc-800">
         <Container className="flex flex-col items-center text-center">
           <Reveal className="max-w-xl">
             <h2 className="font-display text-2xl font-bold text-zinc-900 dark:text-zinc-50">
@@ -146,9 +240,6 @@ export function Home() {
 
           {selected && (
             <div className="mt-8 w-full max-w-md text-left">
-              {/* Feedback on a click, not scroll storytelling, so this fades
-                  in immediately rather than waiting on viewport intersection
-                  like Reveal does. */}
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={selected.key}
@@ -165,9 +256,104 @@ export function Home() {
         </Container>
       </section>
 
-      {/* Brand memory: a two-column list, deliberately plain, to carry a real
-          example rather than another visual set piece. */}
-      <section className="border-y border-zinc-200 py-16 dark:border-zinc-800">
+      {/* ── SECTION B: Checks what customers will feel ───────────────── */}
+      <section className="py-20">
+        <Container className="grid gap-12 lg:grid-cols-2 lg:gap-16">
+          <Reveal>
+            <h2 className="font-display text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+              Checks what customers will feel
+            </h2>
+            <p className="mt-4 max-w-[44ch] text-[15px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+              Every asset is scored on premium, modern, playful and niche. If it misses your target,
+              Marque.ai fixes it by itself, up to two rounds.
+            </p>
+            <div className="mt-8">
+              <Button to="/workspace">See a live check</Button>
+            </div>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <SignalCard />
+          </Reveal>
+        </Container>
+      </section>
+
+      {/* ── SECTION C: One idea, four formats ────────────────────────── */}
+      <section className="border-y border-zinc-200 py-20 dark:border-zinc-800">
+        <Container>
+          <div className="flex flex-col items-center text-center">
+            <Reveal className="max-w-xl">
+              <h2 className="font-display text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+                One idea, four formats
+              </h2>
+              <p className="mt-3 text-[15px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+                One brief, four ready-to-use assets. Switch between formats below.
+              </p>
+            </Reveal>
+
+            {/* Tab switcher */}
+            <Reveal delay={0.1} className="mt-8 flex gap-2 rounded-md border border-zinc-200 p-1 dark:border-zinc-800">
+              {FORMAT_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveFormat(tab.key)}
+                  className={`rounded-sm px-4 py-2 text-sm font-medium transition-colors ${
+                    activeFormat === tab.key
+                      ? "bg-emerald-700 text-white"
+                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </Reveal>
+          </div>
+
+          {/* Asset preview card */}
+          <div className="mt-10 mx-auto max-w-sm">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={activeFormat}
+                initial={reduce ? false : { opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={reduce ? undefined : { opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.2 }}
+                className="border border-zinc-200 dark:border-zinc-800"
+              >
+                <div className="p-4">
+                  <AssetPreview
+                    type={activeFormat}
+                    slots={DEMO_ASSET.slots}
+                    knobs={DEMO_ASSET.knobs}
+                    palette={profile.palette}
+                    fonts={profile.fonts}
+                  />
+                </div>
+                <div className="border-t border-zinc-200 p-4 dark:border-zinc-800">
+                  <p className="font-mono text-[11px] uppercase tracking-widest text-zinc-400 dark:text-zinc-600">
+                    {activeFormatTab.size}
+                  </p>
+                  <dl className="mt-3 space-y-1.5">
+                    {[
+                      ["headline", DEMO_ASSET.slots.headline],
+                      ["price", DEMO_ASSET.slots.price],
+                      ["cta", DEMO_ASSET.slots.cta],
+                    ].map(([k, v]) => (
+                      <div key={k} className="flex items-baseline justify-between gap-4 text-[13px]">
+                        <dt className="font-mono text-zinc-400 dark:text-zinc-600">{k}</dt>
+                        <dd className="text-right text-zinc-700 dark:text-zinc-300">{v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </Container>
+      </section>
+
+      {/* ── What Burger Lab has already taught it ────────────────────── */}
+      <section className="py-16">
         <Container>
           <Reveal>
             <h2 className="font-display text-2xl font-bold text-zinc-900 dark:text-zinc-50">
@@ -205,9 +391,24 @@ export function Home() {
         </Container>
       </section>
 
-      {/* Built for: a tinted bento rather than stock photography, since a
-          random photo keyed to a seed can't be trusted to actually depict
-          the category it's labeled with. */}
+      {/* ── SECTION D: Watch it work ──────────────────────────────────── */}
+      <section className="border-y border-zinc-200 py-16 dark:border-zinc-800">
+        <Container>
+          <Reveal>
+            <h2 className="font-display text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+              Watch it work
+            </h2>
+            <p className="mt-3 max-w-[52ch] text-[15px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+              This is a live mock trace of the agent planning and scoring a campaign.
+            </p>
+          </Reveal>
+          <Reveal delay={0.1} className="mt-8">
+            <TracePanel events={traceLog} playing={tracePlaying} />
+          </Reveal>
+        </Container>
+      </section>
+
+      {/* ── Built for small business owners ──────────────────────────── */}
       <section className="py-20">
         <Container>
           <Reveal className="max-w-xl">
@@ -232,8 +433,7 @@ export function Home() {
         </Container>
       </section>
 
-      {/* Closing CTA: full-width centered stack, deliberately plain after the
-          photo section so the ask is the last thing in the eye. */}
+      {/* ── Final CTA ─────────────────────────────────────────────────── */}
       <section className="border-t border-zinc-200 py-20 dark:border-zinc-800">
         <Container className="flex flex-col items-center text-center">
           <Reveal>
@@ -242,7 +442,7 @@ export function Home() {
             </h2>
             <p className="mt-4 text-[15px] text-zinc-500 dark:text-zinc-500">Takes about two minutes.</p>
             <div className="mt-8">
-              <Button to="/onboard">Get started</Button>
+              <Button to="/onboarding">Get started</Button>
             </div>
           </Reveal>
         </Container>
