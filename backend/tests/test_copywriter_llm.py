@@ -1,14 +1,18 @@
-"""P2 — Real LLM copywriter (SPEC Phase 2).
+"""P2 — Real LLM copywriter (SPEC Phase 2), exercised through the P4 orchestrator.
 
 Zero-credit: every test either leaves the key unset (regex fallback) or mocks the
-OpenRouter call with pytest-httpx. The facts-rule tests are the trust/safety
-point judges care about — the price in the slots comes ONLY from the goal, never
-from the model, even when the model tries to smuggle one in.
+OpenRouter calls with pytest-httpx. The facts-rule tests are the trust/safety
+point — the price in the slots comes ONLY from the goal, never from the model,
+even when the model tries to smuggle one in.
+
+Note on call ordering: with a key set, /agent/run makes TWO LLM calls for a
+generation goal — first the intent classifier, then the copywriter. Each test
+that sets a key mocks the intent response first (via `_mock_intent_create`), then
+the copy response(s). `_create_brand` unsets the key during onboarding so no DNA
+call interferes.
 """
 
 import json
-
-import pytest
 
 # Valid creative core the LLM would return (WORDS only — no price/number).
 VALID_COPY_JSON = {
@@ -17,9 +21,26 @@ VALID_COPY_JSON = {
     "core_message": "Our new truffle burger lands this week, made for bold palates.",
 }
 
+_INTENT_CREATE = {"intent": "create_campaign", "memory_field": None, "memory_value": None}
+
 
 def _openrouter_response(content: str) -> dict:
     return {"choices": [{"message": {"content": content}}]}
+
+
+def _mock_intent_create(httpx_mock):
+    """First LLM call in /agent/run is intent classification — return create_campaign."""
+    httpx_mock.add_response(
+        url="https://openrouter.ai/api/v1/chat/completions",
+        json=_openrouter_response(json.dumps(_INTENT_CREATE)),
+    )
+
+
+def _mock_copy(httpx_mock, payload):
+    httpx_mock.add_response(
+        url="https://openrouter.ai/api/v1/chat/completions",
+        json=_openrouter_response(payload if isinstance(payload, str) else json.dumps(payload)),
+    )
 
 
 async def _create_brand(client, **overrides):
@@ -38,139 +59,102 @@ async def _create_brand(client, **overrides):
     return resp.json()
 
 
+async def _run(client, brand_id, goal):
+    resp = await client.post(f"/v1/brands/{brand_id}/agent/run", json={"goal": goal})
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
 # --- Heuristic fallback (no key): regex copy, no network ---
 
 async def test_no_key_uses_regex_copy(client, monkeypatch, httpx_mock):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     brand = await _create_brand(client)
-    resp = await client.post(
-        f"/v1/brands/{brand['id']}/agent/run",
-        json={"goal": "Diwali offer 20% off on combos ₹299"},
-    )
-    assert resp.status_code == 201
-    assert len(httpx_mock.get_requests()) == 0
-    d = resp.json()
-    # Regex headline path still works; price extracted from the goal.
-    assert d["assets"][0]["slots"]["price"] == "₹299"
+    body = await _run(client, brand["id"], "Diwali offer 20% off on combos ₹299")
+    assert len(httpx_mock.get_requests()) == 0  # no LLM calls at all
+    assert body["intent"] == "create_campaign"
+    assert body["campaign"]["assets"][0]["slots"]["price"] == "₹299"
 
 
 # --- LLM happy path: model copy lands in every asset's slots ---
 
 async def test_llm_copy_lands_in_slots(client, monkeypatch, httpx_mock):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    httpx_mock.add_response(
-        url="https://openrouter.ai/api/v1/chat/completions",
-        json=_openrouter_response(json.dumps(VALID_COPY_JSON)),
-    )
+    _mock_intent_create(httpx_mock)
+    _mock_copy(httpx_mock, VALID_COPY_JSON)
     brand = await _create_brand(client)
-    resp = await client.post(
-        f"/v1/brands/{brand['id']}/agent/run",
-        json={"goal": "Launch our new truffle burger this week"},
-    )
-    assert resp.status_code == 201
-    d = resp.json()
-    assert d["name"] == VALID_COPY_JSON["headline"]
-    for asset in d["assets"]:
+    body = await _run(client, brand["id"], "Launch our new truffle burger this week")
+    c = body["campaign"]
+    assert c["name"] == VALID_COPY_JSON["headline"]
+    for asset in c["assets"]:
         assert asset["slots"]["headline"] == VALID_COPY_JSON["headline"]
-    # Exactly one LLM call for the whole campaign (not one per asset).
-    assert len(httpx_mock.get_requests()) == 1
+    # Two calls: intent + one copy call for the whole campaign (not per asset).
+    assert len(httpx_mock.get_requests()) == 2
 
 
 # --- Facts rule: price comes ONLY from the goal, never from the model ---
 
 async def test_facts_rule_price_only_from_goal(client, monkeypatch, httpx_mock):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    # The model tries to smuggle a different price into its copy.
+    _mock_intent_create(httpx_mock)
     sneaky = {
         "headline": "Grab it for just ₹99 today",
         "subline": "Lowest ever ₹99 deal",
         "core_message": "Only ₹99 this week!",
     }
-    httpx_mock.add_response(
-        url="https://openrouter.ai/api/v1/chat/completions",
-        json=_openrouter_response(json.dumps(sneaky)),
-    )
+    _mock_copy(httpx_mock, sneaky)
     brand = await _create_brand(client)
-    # The owner's goal says ₹299 — that is the ONLY figure allowed in the badge.
-    resp = await client.post(
-        f"/v1/brands/{brand['id']}/agent/run",
-        json={"goal": "Truffle burger combo ₹299"},
-    )
-    assert resp.status_code == 201
-    d = resp.json()
+    body = await _run(client, brand["id"], "Truffle burger combo ₹299")
     # The price slot is the goal's ₹299, not the model's ₹99.
-    assert d["assets"][0]["slots"]["price"] == "₹299"
+    assert body["campaign"]["assets"][0]["slots"]["price"] == "₹299"
 
 
 async def test_facts_rule_no_price_in_goal_means_null_price(client, monkeypatch, httpx_mock):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    # Model invents a price though the goal has none.
+    _mock_intent_create(httpx_mock)
     invented = {"headline": "Big launch", "subline": "From ₹149", "core_message": "Deal from ₹149"}
-    httpx_mock.add_response(
-        url="https://openrouter.ai/api/v1/chat/completions",
-        json=_openrouter_response(json.dumps(invented)),
-    )
+    _mock_copy(httpx_mock, invented)
     brand = await _create_brand(client)
-    resp = await client.post(
-        f"/v1/brands/{brand['id']}/agent/run",
-        json={"goal": "Launch our new truffle burger"},  # no price
-    )
-    assert resp.status_code == 201
+    body = await _run(client, brand["id"], "Launch our new truffle burger")  # no price
     # No figure in the goal -> the price badge is null (never the invented ₹149).
-    assert resp.json()["assets"][0]["slots"]["price"] is None
+    assert body["campaign"]["assets"][0]["slots"]["price"] is None
 
 
 # --- Reliability: retry once on bad JSON, then succeed ---
 
 async def test_bad_json_retry_then_succeed(client, monkeypatch, httpx_mock):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    httpx_mock.add_response(
-        url="https://openrouter.ai/api/v1/chat/completions",
-        json=_openrouter_response("not json"),
-    )
-    httpx_mock.add_response(
-        url="https://openrouter.ai/api/v1/chat/completions",
-        json=_openrouter_response(json.dumps(VALID_COPY_JSON)),
-    )
+    _mock_intent_create(httpx_mock)
+    _mock_copy(httpx_mock, "not json")
+    _mock_copy(httpx_mock, VALID_COPY_JSON)
     brand = await _create_brand(client)
-    resp = await client.post(
-        f"/v1/brands/{brand['id']}/agent/run",
-        json={"goal": "Launch our new truffle burger"},
-    )
-    assert resp.status_code == 201
-    assert resp.json()["name"] == VALID_COPY_JSON["headline"]
-    assert len(httpx_mock.get_requests()) == 2
+    body = await _run(client, brand["id"], "Launch our new truffle burger")
+    assert body["campaign"]["name"] == VALID_COPY_JSON["headline"]
+    # intent + copy(bad) + copy(retry) = 3 calls.
+    assert len(httpx_mock.get_requests()) == 3
 
 
 # --- Fallback: bad JSON twice / 5xx -> regex copy, campaign still 201 ---
 
 async def test_bad_json_twice_falls_back(client, monkeypatch, httpx_mock):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    for _ in range(2):
-        httpx_mock.add_response(
-            url="https://openrouter.ai/api/v1/chat/completions",
-            json=_openrouter_response("junk"),
-        )
+    _mock_intent_create(httpx_mock)
+    _mock_copy(httpx_mock, "junk")
+    _mock_copy(httpx_mock, "junk")
     brand = await _create_brand(client)
-    resp = await client.post(
-        f"/v1/brands/{brand['id']}/agent/run",
-        json={"goal": "Launch our new truffle burger"},
-    )
-    assert resp.status_code == 201
+    body = await _run(client, brand["id"], "Launch our new truffle burger")
     # Regex headline, not the model's (which never parsed).
-    assert resp.json()["name"] != VALID_COPY_JSON["headline"]
+    assert body["campaign"]["name"] != VALID_COPY_JSON["headline"]
 
 
 async def test_upstream_5xx_falls_back(client, monkeypatch, httpx_mock):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    _mock_intent_create(httpx_mock)
     httpx_mock.add_response(
         url="https://openrouter.ai/api/v1/chat/completions",
         status_code=500,
         text="boom",
     )
     brand = await _create_brand(client)
-    resp = await client.post(
-        f"/v1/brands/{brand['id']}/agent/run",
-        json={"goal": "Launch our new truffle burger"},
-    )
-    assert resp.status_code == 201  # campaign survives an OpenRouter outage
+    body = await _run(client, brand["id"], "Launch our new truffle burger")
+    assert body["campaign"] is not None  # campaign survives an OpenRouter outage

@@ -13,10 +13,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import time
+
 from asset_gen import generate_campaign
 from db import get_session
 from models import Asset, Brand, Campaign, utcnow
-from schemas import AgentRunIn, AssetOut, BrandProfile, CampaignOut
+from orchestrator import answer_brand_question, classify_intent
+from schemas import AgentRunIn, AgentRunOut, AssetOut, BrandProfile, CampaignOut, MAX_LIST_ITEMS
 
 router = APIRouter(prefix="/v1/brands/{brand_id}", tags=["agent"])
 campaigns_router = APIRouter(prefix="/v1/campaigns", tags=["campaigns"])
@@ -53,16 +56,7 @@ def _campaign_to_out(campaign: Campaign, assets: list[Asset]) -> CampaignOut:
     )
 
 
-@router.post("/agent/run", response_model=CampaignOut, status_code=201)
-async def agent_run(brand_id: str, payload: AgentRunIn, session: AsyncSession = Depends(get_session)):
-    brand = await session.get(Brand, brand_id)
-    if brand is None:
-        raise HTTPException(status_code=404, detail="Brand not found")
-
-    profile = BrandProfile(**brand.profile_json)
-    today = utcnow().date().isoformat()
-    campaign_data = await generate_campaign(profile, payload.goal, today=today)
-
+async def _persist_campaign(session: AsyncSession, brand_id: str, campaign_data: dict) -> None:
     campaign = Campaign(
         id=campaign_data["id"],
         brand_id=brand_id,
@@ -76,7 +70,6 @@ async def agent_run(brand_id: str, payload: AgentRunIn, session: AsyncSession = 
     # (assets.campaign_id FK) — without this asyncpg can order the asset
     # inserts first and hit a foreign-key violation.
     await session.flush()
-
     for asset_data in campaign_data["assets"]:
         session.add(
             Asset(
@@ -93,11 +86,84 @@ async def agent_run(brand_id: str, payload: AgentRunIn, session: AsyncSession = 
                 },
             )
         )
-
     await session.commit()
-    # Return the generated shape directly (validated) rather than re-reading —
-    # it already matches CampaignOut and carries the per-format date.
-    return CampaignOut(**campaign_data)
+
+
+@router.post("/agent/run", response_model=AgentRunOut, status_code=201)
+async def agent_run(brand_id: str, payload: AgentRunIn, session: AsyncSession = Depends(get_session)):
+    """P4 — the thin orchestrator. Classify the message, do the matching thing,
+    and return a REAL trace of what ran (not a canned list). Backward compatible:
+    a generation message still produces + persists a campaign, now nested under
+    `campaign` with `intent="create_campaign"`."""
+    brand = await session.get(Brand, brand_id)
+    if brand is None:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    profile = BrandProfile(**brand.profile_json)
+
+    trace: list[dict] = []
+
+    def step(label: str, fn_ms: int) -> None:
+        trace.append({"label": label, "ms": max(0, int(fn_ms))})
+
+    # 1. Load brand memory (already done above) — record it as a real step.
+    t0 = time.monotonic()
+    step("Loaded brand memory", round((time.monotonic() - t0) * 1000))
+
+    # 2. Classify intent (LLM when keyed, else heuristic).
+    t0 = time.monotonic()
+    intent, source = await classify_intent(payload.goal)
+    step(f"Classified intent: {intent.intent} ({source})", round((time.monotonic() - t0) * 1000))
+
+    # 3a. update_memory — append the extracted rule.
+    if intent.intent == "update_memory":
+        field = intent.memory_field or "dont"
+        value = (intent.memory_value or payload.goal).strip()[:200]
+        locked = await session.get(Brand, brand_id, with_for_update=True)
+        current = BrandProfile(**locked.profile_json)
+        current_list = getattr(current, field)
+        t0 = time.monotonic()
+        if value not in current_list and len(current_list) < (
+            MAX_LIST_ITEMS * 2 if field == "preferences" else MAX_LIST_ITEMS
+        ):
+            merged = current.model_copy(
+                update={field: [*current_list, value], "version": current.version + 1}
+            )
+            locked.profile_json = merged.model_dump(mode="json")
+            await session.commit()
+        step(f"Added a {field} rule to brand memory", round((time.monotonic() - t0) * 1000))
+        return AgentRunOut(
+            intent="update_memory",
+            source=source,
+            trace=trace,
+            reply=f'Got it — added "{value}" to your {field} rules.',
+            memory_field=field,
+            memory_value=value,
+        )
+
+    # 3b. brand_question — answer from memory.
+    if intent.intent == "brand_question":
+        t0 = time.monotonic()
+        answer = await answer_brand_question(profile, payload.goal)
+        step("Answered from brand memory", round((time.monotonic() - t0) * 1000))
+        return AgentRunOut(intent="brand_question", source=source, trace=trace, reply=answer)
+
+    # 3c. create_campaign (default) — write copy, generate + persist assets.
+    t0 = time.monotonic()
+    today = utcnow().date().isoformat()
+    campaign_data = await generate_campaign(profile, payload.goal, today=today)
+    step("Wrote creative core + planned 4 assets", round((time.monotonic() - t0) * 1000))
+
+    t0 = time.monotonic()
+    await _persist_campaign(session, brand_id, campaign_data)
+    step("Rendered 4 assets and saved the campaign", round((time.monotonic() - t0) * 1000))
+
+    return AgentRunOut(
+        intent="create_campaign",
+        source=source,
+        trace=trace,
+        reply=f'Generated "{campaign_data["name"]}" — {len(campaign_data["assets"])} assets.',
+        campaign=CampaignOut(**campaign_data),
+    )
 
 
 @router.get("/campaigns", response_model=list[CampaignOut])
