@@ -9,7 +9,7 @@ Campaigns + assets are stored in the existing (previously unused) `campaigns`
 and `assets` tables. An asset's slots+knobs live in `assets.layout_json`.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -101,22 +101,43 @@ async def agent_run(brand_id: str, payload: AgentRunIn, session: AsyncSession = 
 
 
 @router.get("/campaigns", response_model=list[CampaignOut])
-async def list_campaigns(brand_id: str, session: AsyncSession = Depends(get_session)):
+async def list_campaigns(
+    brand_id: str,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    session: AsyncSession = Depends(get_session),
+):
     brand = await session.get(Brand, brand_id)
     if brand is None:
         raise HTTPException(status_code=404, detail="Brand not found")
 
     result = await session.execute(
-        select(Campaign).where(Campaign.brand_id == brand_id).order_by(Campaign.created_at.desc())
+        select(Campaign)
+        .where(Campaign.brand_id == brand_id)
+        .order_by(Campaign.created_at.desc())
+        .limit(limit)
+        .offset(offset)
     )
     campaigns = result.scalars().all()
-    out = []
-    for c in campaigns:
-        assets = (
-            await session.execute(select(Asset).where(Asset.campaign_id == c.id))
-        ).scalars().all()
-        out.append(_campaign_to_out(c, list(assets)))
-    return out
+
+    if not campaigns:
+        return []
+
+    # Single IN query to fetch all assets for these campaigns at once — avoids
+    # the N+1 loop that was querying once per campaign.
+    campaign_ids = [c.id for c in campaigns]
+    assets_result = await session.execute(
+        select(Asset).where(Asset.campaign_id.in_(campaign_ids))
+    )
+    all_assets = assets_result.scalars().all()
+
+    # Group assets by campaign_id for O(1) lookup below.
+    assets_by_campaign: dict[str, list[Asset]] = {c.id: [] for c in campaigns}
+    for a in all_assets:
+        if a.campaign_id in assets_by_campaign:
+            assets_by_campaign[a.campaign_id].append(a)
+
+    return [_campaign_to_out(c, assets_by_campaign[c.id]) for c in campaigns]
 
 
 @campaigns_router.get("/{campaign_id}", response_model=CampaignOut)
