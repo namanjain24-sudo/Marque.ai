@@ -1,6 +1,6 @@
 // pages/Workspace.jsx — 3-column: chat history, campaign results, trace panel
 import { useEffect, useRef } from "react"
-import { useLocation } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 
 import { AskBar } from "../components/AskBar"
 import { AssetCard } from "../components/AssetCard"
@@ -32,6 +32,18 @@ export function Workspace() {
           <div className="flex-1 overflow-y-auto p-5">
             <p className="font-display text-lg font-bold text-zinc-900 dark:text-zinc-50">Workspace</p>
             <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-500">Give me a goal and I'll plan the campaign.</p>
+
+            {/* Identity-not-set banner — generations render on a grey palette
+                until a direction is applied, so flag it up front. */}
+            {brand?.id && !brand?.palette && messages.length === 0 && (
+              <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-[13px] dark:border-amber-900 dark:bg-amber-950/20">
+                <p className="font-medium text-amber-900 dark:text-amber-300">Brand identity not set up yet.</p>
+                <p className="mt-0.5 text-[12px] text-amber-700 dark:text-amber-500">
+                  Apply an identity direction on the{" "}
+                  <Link to="/brand" className="underline">Brand page</Link> to unlock palette and fonts.
+                </p>
+              </div>
+            )}
 
             {/* Chat history */}
             <div className="mt-6 space-y-3">

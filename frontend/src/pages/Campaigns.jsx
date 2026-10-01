@@ -8,6 +8,7 @@ import { api } from "../lib/api"
 const STATUS_STYLE = {
   Ready: "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400",
   Draft: "bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-400",
+  Archived: "bg-zinc-100 text-zinc-400 dark:bg-zinc-900 dark:text-zinc-600",
 }
 
 export function Campaigns() {

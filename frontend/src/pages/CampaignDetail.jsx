@@ -68,9 +68,16 @@ export function CampaignDetail() {
           </button>
         </div>
 
+        {/* Empty-assets guard — a campaign that didn't generate correctly */}
+        {(campaign.assets ?? []).length === 0 ? (
+          <div className="mt-10 border border-amber-200 bg-amber-50 px-5 py-4 text-[14px] text-amber-800 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300">
+            This campaign has no assets. It may not have generated correctly.
+          </div>
+        ) : (
+          <>
         {/* Assets grid */}
         <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {(campaign.assets ?? []).map((asset) => (
+          {campaign.assets.map((asset) => (
             <AssetCard key={asset.id} asset={asset} />
           ))}
         </div>
@@ -120,6 +127,8 @@ export function CampaignDetail() {
             )
           })}
         </div>
+          </>
+        )}
       </Container>
 
       <Toast message={toast?.message} type={toast?.type} onClose={hideToast} />
