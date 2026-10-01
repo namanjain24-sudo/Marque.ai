@@ -11,7 +11,7 @@ export function CampaignDetail() {
   const { id } = useParams()
   const [campaign, setCampaign] = useState(null)
   const [loadError, setLoadError] = useState(null)
-  const { toast, showToast, hideToast } = useToast()
+  const { toast, hideToast } = useToast()
 
   useEffect(() => {
     setLoadError(null)
@@ -58,9 +58,9 @@ export function CampaignDetail() {
           </div>
           <button
             type="button"
-            title="Connect backend later"
-            onClick={() => showToast("Export will work after backend is connected.", "info")}
-            className="inline-flex items-center gap-2 rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:border-zinc-400 dark:border-zinc-700 dark:text-zinc-300"
+            disabled
+            title="Open each asset in the Editor to export individually"
+            className="inline-flex items-center gap-2 rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 opacity-50 dark:border-zinc-700 dark:text-zinc-300"
           >
             <DownloadSimple size={15} />
             Export all
