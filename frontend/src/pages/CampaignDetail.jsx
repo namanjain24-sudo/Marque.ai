@@ -5,12 +5,14 @@ import { useParams } from "react-router-dom"
 import { AssetCard } from "../components/AssetCard"
 import { Container } from "../components/Container"
 import { Toast, useToast } from "../components/Toast"
+import { useBrand } from "../context/BrandContext"
 import { api } from "../lib/api"
 
 export function CampaignDetail() {
   const { id } = useParams()
   const [campaign, setCampaign] = useState(null)
   const { toast, showToast, hideToast } = useToast()
+  const { brand } = useBrand()
 
   useEffect(() => {
     api.getCampaign(id).then(setCampaign).catch(() => {})
@@ -53,7 +55,12 @@ export function CampaignDetail() {
         {/* Assets grid */}
         <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {(campaign.assets ?? []).map((asset) => (
-            <AssetCard key={asset.id} asset={asset} />
+            <AssetCard
+              key={asset.id}
+              asset={asset}
+              palette={brand?.palette}
+              fonts={brand?.fonts}
+            />
           ))}
         </div>
 
@@ -81,7 +88,11 @@ export function CampaignDetail() {
                 </span>
                 <span className="text-[14px] text-zinc-700 dark:text-zinc-300">{asset.label}</span>
               </div>
-              <span className="font-mono text-[12px] text-zinc-400 dark:text-zinc-600">{asset.signal_match}</span>
+              {asset.signal_match == null ? (
+                <span className="text-zinc-400 text-[11px]">Signal not checked</span>
+              ) : (
+                <span className="font-mono text-[12px] text-zinc-400 dark:text-zinc-600">{asset.signal_match}</span>
+              )}
             </div>
           ))}
         </div>
