@@ -11,7 +11,7 @@ import { useAgent } from "../hooks/useAgent"
 export function Workspace() {
   const { brand } = useBrand()
   const location = useLocation()
-  const { run, trace, running, campaign, question, error, messages } = useAgent(brand?.id)
+  const { run, trace, running, campaign, question, error, messages, source } = useAgent(brand?.id)
 
   // If we arrived here from the hero chat (navigate with { state: { goal } }),
   // run that goal once the brand is loaded. Guarded so it fires a single time.
@@ -118,7 +118,14 @@ export function Workspace() {
           {campaign && (
             <div>
               <div className="mb-6">
-                <h2 className="font-display text-xl font-bold text-zinc-900 dark:text-zinc-50">{campaign.name}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-display text-xl font-bold text-zinc-900 dark:text-zinc-50">{campaign.name}</h2>
+                  {source === 'llm' && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400">
+                      ✨ AI-written
+                    </span>
+                  )}
+                </div>
                 <p className="mt-1 text-[14px] text-zinc-500 dark:text-zinc-500">{campaign.objective}</p>
                 <div className="mt-3 border border-zinc-200 px-4 py-3 dark:border-zinc-800">
                   <p className="font-mono text-[12px] uppercase tracking-widest text-zinc-400 dark:text-zinc-600">Core message</p>

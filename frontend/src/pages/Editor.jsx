@@ -186,8 +186,10 @@ function EditorInner({ asset: baseAsset }) {
             </div>
 
             <div className="border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
-              {/* ref wraps only the asset so the rasterized PNG is the asset itself */}
-              <div ref={previewRef} className="mx-auto w-full max-w-[360px]">
+              {/* ref wraps only the asset so the rasterized PNG is the asset itself.
+                  Wider cap (was 360px) so the preview — and the rasterized export —
+                  is a usable size, not a thumbnail. */}
+              <div ref={previewRef} className="mx-auto w-full max-w-[520px]">
                 <AssetPreview
                   type={activeSize}
                   slots={slots}
