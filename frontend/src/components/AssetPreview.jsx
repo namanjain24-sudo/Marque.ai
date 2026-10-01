@@ -69,6 +69,10 @@ export function AssetPreview({ type = 'poster', slots, knobs, palette, fonts, pn
   const primaryColor = palette?.primary ?? '#E63946'
   const lightColor = palette?.light ?? '#FFFFFF'
   const bgGradient = PHOTO_TONE_GRADIENT[photo_tone] ?? PHOTO_TONE_GRADIENT.warm
+  // A generated hero background (slots.hero_image) sits UNDER the overlay + text
+  // layers. The gradient stays as the base so it shows through while the image
+  // loads or if it 404s — text legibility never depends on the image arriving.
+  const heroImage = slots.hero_image || null
   const headingFont = fontFamily(font_style, fonts)
   const bodyFont = fonts?.body ? `'${fonts.body}', sans-serif` : `'Inter', sans-serif`
 
@@ -96,12 +100,29 @@ export function AssetPreview({ type = 'poster', slots, knobs, palette, fonts, pn
         margin: '0 auto',
       }}
     >
-      {/* Overlay */}
+      {/* Hero background image (generated) — sits under everything else. */}
+      {heroImage && (
+        <img
+          src={heroImage}
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
+          }}
+        />
+      )}
+
+      {/* Overlay — darker when a photo is present so the headline stays readable. */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          background: `rgba(0,0,0,${overlay})`,
+          background: `rgba(0,0,0,${heroImage ? Math.min(0.85, overlay + 0.25) : overlay})`,
         }}
       />
 
