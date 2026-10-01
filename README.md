@@ -30,6 +30,14 @@ cd backend && uv run pytest tests/ -v
 Uses its own `marque_test` database (created automatically), so it never
 touches the `marque` dev database.
 
+## API (added this branch)
+
+- `POST /v1/brands/{id}/assets` — save an uploaded image to the library (runs a
+  Signal Check, stores the image, returns the asset). `GET`/`DELETE` to list/remove.
+  Images are served at `/media/{asset_id}.jpg`.
+- `POST /v1/brands/{id}/audit` — audit 2–5 images for brand consistency; `GET
+  /v1/brands/{id}/audits` for history.
+
 ## Deployment
 
 See [DEPLOY.md](DEPLOY.md).

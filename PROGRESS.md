@@ -19,8 +19,11 @@ Product name is **Marque.ai** (the PRD's internal codename "BrandOS" is not used
 | F1+F2+F3 combined | ✅ Integration-tested together (same brand, multiple brands, persistence) |
 | **Frontend** | ✅ Real UI for F1-F3: marketing home, onboarding form, brand dashboard |
 | F4 — Brand Signaling + auto-fix (Check half) | ✅ Done, tested, verified against the live vision API — see below for what's intentionally not built yet |
-| Automated test suite | ✅ 91 pytest tests (`backend/tests/`), wired into CI with a Postgres service |
-| F5 and onwards (Asset Creator, Campaign Agent, agent core, ...) | Not started |
+| Automated test suite | ✅ 126 pytest tests (`backend/tests/`), wired into CI with a Postgres service |
+| F5 (light) — Asset Creator + campaigns, F6/F7 hero chat | ✅ Done on this branch (deterministic generation) |
+| F8 (light) — Asset Library (save-on-check) | ✅ Done, tested |
+| F10 — Brand Audit | ✅ Done, tested |
+| F11+ (Product Photography, Merch/Pitch) | Not started |
 
 ---
 
@@ -600,3 +603,70 @@ real pass on both rather than assuming either.
 2. **Rate limiting** for `/signal-check` before this is public anywhere —
    see above. Not blocking for continued local development.
 3. Nothing else blocking right now.
+
+
+---
+
+## F8 (light) — Asset Library (save-on-check)
+
+There's no F5 renderer output to populate a library from in the usual way, so the
+Library is fed by a **save-on-check** flow: after a Signal Check, the owner hits
+**Save to library** and the uploaded image + its real match score are persisted as
+an `Asset` row. The stored (downscaled) JPEG is the preview.
+
+- `backend/uploads.py` — shared upload validation (magic-byte sniff, 10 MB cap,
+  empty-file guard) extracted from `routers/signal.py` so F4/F8/F10 all use it,
+  plus filesystem image storage (`save_image`/`delete_image`) under `MEDIA_ROOT`,
+  served by FastAPI `StaticFiles` at `/media` (nginx proxies `/media/*` → backend).
+  Images persist across container rebuilds via a Docker named volume (`media`).
+- `backend/routers/assets.py` — `POST /v1/brands/{id}/assets` (multipart upload →
+  re-runs `check_signals` so the asset always has a score → stores JPEG → records
+  the row), `GET` (list, newest-first, `?type=` filter, paginated), `GET /{id}`,
+  `DELETE /{id}` (removes row + file). Same error mapping as F4 (404/422/502/503).
+- `LibraryAsset` schema kept separate from F5's `AssetOut` (rendered assets);
+  `AssetPreview.jsx` renders the real `png_url` as an `<img>` for uploads and falls
+  back to the CSS mockup for rendered assets.
+- Frontend `Library.jsx` lists real assets; brand-health strip alerts come from the
+  latest audit.
+- **Cost/caveat:** each save is one vision call (~$0.0003) — same public-endpoint
+  spend risk already flagged for F4; rate-limiting still deferred.
+
+## F10 — Brand Audit (PRD Section 7 F10, P1)
+
+Upload 2–5 existing creatives; a vision read of each is compared against the others
+and Brand Memory to produce a consistency score, distinct-treatment counts, and the
+top issues each with a suggested fix.
+
+- `backend/vision.py` — `analyse_asset` reuses the F4 reliability scaffolding
+  (temperature 0, fixed rubric, schema validation + retry-once-on-bad-JSON, image
+  downscaling) via a shared `_critic_call`; the audit prompt additionally tags
+  `font_style` / `photo_tone` / dominant `colours` per image.
+- `backend/audit.py` — `run_audit` fans `analyse_asset` across the images
+  concurrently, then computes everything **deterministically** (never from the
+  model's arithmetic, same principle as F4):
+  - **Consistency score** = `100 - mean(per-axis spread)/2`, clamped 0–100. The PRD
+    gives the 0–100 range but no formula, so this one is ours and is unit-tested
+    (`test_audit_math.py`): identical images → 100, max divergence on all axes → 50.
+  - **Counts** = distinct `font_style` / `photo_tone` / colour values → the PRD's
+    "N font styles, M colour treatments" summary.
+  - **Issues** (top 3, each with a fix) ranked from font/colour/photo inconsistency
+    and per-axis divergence; **alerts** flag images that read off-brand.
+- `backend/routers/audit.py` — `POST /v1/brands/{id}/audit` (2–5 images, 422 outside
+  that range) persists an `Audit` row and returns the report; `GET /audits` is the
+  history.
+- Frontend `Audit.jsx` posts the files and renders the score, summary, and each
+  issue with its suggested fix. "Fix with Marque.ai" is deferred to F5's renderer
+  (same honest deferral as F4's auto-fix loop).
+- **Cost/caveat:** 2–5 vision calls per audit (~$0.0006–$0.0015). Bigger
+  public-endpoint spend risk than F4 — rate-limiting still deferred.
+
+### Tested
+
+- `test_assets.py` (8): save creates row+file+score, unknown type → "other",
+  list newest-first + type filter, get/delete (file removed), 404 unknown brand,
+  422 bad/empty upload, 503 without key.
+- `test_audit.py` (6): happy path (counts + ≤3 issues + fixes), 422 on <2 / >5
+  images, 404 unknown brand, 503 without key, persistence via `GET /audits`.
+- `test_audit_math.py` (7): the consistency formula and distinct-treatment counts,
+  no network.
+- Full suite **126 passing**; frontend `npm run lint` + `npm run build` green.
