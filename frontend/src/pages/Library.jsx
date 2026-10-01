@@ -1,11 +1,13 @@
-// pages/Library.jsx — filter tabs, search, asset grid with brand health strip
+// pages/Library.jsx — filter tabs, search, asset grid with brand health strip.
+// Real data: assets saved via Signal Check (save-on-check), alerts from the
+// latest brand audit.
 import { useEffect, useMemo, useState } from "react"
 import { AssetCard } from "../components/AssetCard"
 import { Container } from "../components/Container"
-import { mockApi } from "../lib/mockApi"
-import auditData from "../mock/audit.json"
+import { api } from "../lib/api"
+import { useBrand } from "../context/BrandContext"
 
-const FILTER_TABS = ["All", "Posters", "Posts", "Stories", "WhatsApp"]
+const FILTER_TABS = ["All", "Posters", "Posts", "Stories", "WhatsApp", "Uploads"]
 
 const TAB_TYPE = {
   All: null,
@@ -13,16 +15,24 @@ const TAB_TYPE = {
   Posts: "post",
   Stories: "story",
   WhatsApp: "whatsapp",
+  Uploads: "other",
 }
 
 export function Library() {
+  const { brand } = useBrand()
   const [assets, setAssets] = useState([])
+  const [alerts, setAlerts] = useState([])
   const [activeTab, setActiveTab] = useState("All")
   const [search, setSearch] = useState("")
 
   useEffect(() => {
-    mockApi.getAllAssets().then(setAssets).catch(() => {})
-  }, [])
+    if (!brand?.id) return
+    api.listAssets(brand.id).then(setAssets).catch(() => setAssets([]))
+    api
+      .listAudits(brand.id)
+      .then((audits) => setAlerts(audits?.[0]?.report?.alerts ?? []))
+      .catch(() => setAlerts([]))
+  }, [brand?.id])
 
   const filtered = useMemo(() => {
     let list = assets
@@ -31,7 +41,7 @@ export function Library() {
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       list = list.filter((a) =>
-        [a.label, a.slots?.headline, a.slots?.subline, a.campaign]
+        [a.label, a.slots?.headline, a.slots?.subline]
           .filter(Boolean)
           .some((s) => s.toLowerCase().includes(q)),
       )
@@ -60,7 +70,7 @@ export function Library() {
             <p className="mt-1 font-mono text-2xl font-semibold text-zinc-900 dark:text-zinc-50">{assets.length}</p>
             <p className="text-[12px] text-zinc-500 dark:text-zinc-500">total</p>
           </div>
-          {auditData.alerts.map((alert, i) => (
+          {alerts.map((alert, i) => (
             <div key={i} className="border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900 dark:bg-amber-950/20">
               <p className="font-mono text-[11px] uppercase tracking-widest text-amber-600 dark:text-amber-400">Alert</p>
               <p className="mt-1 text-[13px] text-amber-900 dark:text-amber-300">{alert}</p>
@@ -100,7 +110,11 @@ export function Library() {
             <AssetCard key={asset.id} asset={asset} />
           ))}
           {filtered.length === 0 && (
-            <p className="col-span-4 py-8 text-center text-[15px] text-zinc-400 dark:text-zinc-600">No assets match.</p>
+            <p className="col-span-4 py-8 text-center text-[15px] text-zinc-400 dark:text-zinc-600">
+              {assets.length === 0
+                ? "No saved assets yet — run a Signal Check and hit Save to library."
+                : "No assets match."}
+            </p>
           )}
         </div>
       </Container>

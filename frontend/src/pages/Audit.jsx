@@ -1,12 +1,14 @@
-// pages/Audit.jsx — upload box, run audit, mock report
+// pages/Audit.jsx — upload box, run a real brand audit, show the report
 import { UploadSimple } from "@phosphor-icons/react"
 import { useRef, useState } from "react"
 import { Button } from "../components/Button"
 import { Container } from "../components/Container"
 import { Toast, useToast } from "../components/Toast"
-import { mockApi } from "../lib/mockApi"
+import { api } from "../lib/api"
+import { useBrand } from "../context/BrandContext"
 
 export function Audit() {
+  const { brand } = useBrand()
   const inputRef = useRef(null)
   const [files, setFiles] = useState([])
   const [running, setRunning] = useState(false)
@@ -22,9 +24,14 @@ export function Audit() {
   async function runAudit() {
     if (files.length < 2) { showToast("Upload at least 2 images.", "info"); return }
     setRunning(true)
-    const result = await mockApi.runAudit(files).catch(() => null)
-    setReport(result)
-    setRunning(false)
+    try {
+      const result = await api.runAudit(brand.id, files)
+      setReport(result)
+    } catch (err) {
+      showToast(err.message ?? "Audit failed.", "error")
+    } finally {
+      setRunning(false)
+    }
   }
 
   return (
@@ -66,7 +73,7 @@ export function Audit() {
           </Button>
         </div>
 
-        {/* Mock report */}
+        {/* Report */}
         {report && (
           <div className="mt-10 space-y-6">
             <div className="border border-zinc-200 p-5 dark:border-zinc-800">
@@ -77,26 +84,33 @@ export function Audit() {
               <p className="mt-2 text-[15px] text-zinc-600 dark:text-zinc-400">{report.summary}</p>
             </div>
 
-            <div className="border border-zinc-200 dark:border-zinc-800">
-              <div className="border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
-                <p className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">Top issues</p>
-              </div>
-              {report.issues.map((issue, i) => (
-                <div
-                  key={i}
-                  className={`flex items-start gap-3 px-5 py-3 font-mono text-[13px] ${
-                    i > 0 ? "border-t border-zinc-100 dark:border-zinc-900" : ""
-                  }`}
-                >
-                  <span className="mt-0.5 text-zinc-400 dark:text-zinc-600">{String(i + 1).padStart(2, "0")}</span>
-                  <span className="text-zinc-700 dark:text-zinc-300">{issue}</span>
+            {report.issues.length > 0 && (
+              <div className="border border-zinc-200 dark:border-zinc-800">
+                <div className="border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
+                  <p className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">Top issues</p>
                 </div>
-              ))}
-            </div>
+                {report.issues.map((issue, i) => (
+                  <div
+                    key={i}
+                    className={`px-5 py-3 ${i > 0 ? "border-t border-zinc-100 dark:border-zinc-900" : ""}`}
+                  >
+                    <div className="flex items-start gap-3 text-[14px]">
+                      <span className="mt-0.5 font-mono text-zinc-400 dark:text-zinc-600">{String(i + 1).padStart(2, "0")}</span>
+                      <span className="text-zinc-800 dark:text-zinc-200">{issue.text}</span>
+                    </div>
+                    {issue.suggested_fix && (
+                      <p className="mt-1 pl-8 text-[13px] text-emerald-700 dark:text-emerald-400">
+                        Fix: {issue.suggested_fix}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             <Button
               variant="secondary"
-              onClick={() => showToast("Fix workflow will work after backend is connected.", "info")}
+              onClick={() => showToast("Auto-fix regenerates on-brand once the Asset Creator (F5) is wired in.", "info")}
             >
               Fix with Marque.ai
             </Button>

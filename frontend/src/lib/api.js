@@ -49,8 +49,8 @@ async function request(path, options = {}) {
 
 // Separate from request(): a multipart body must NOT get a manual
 // Content-Type, or fetch can't attach its own boundary.
-async function requestForm(path, formData) {
-  const res = await fetch(`${BASE}${path}`, { method: "POST", body: formData })
+async function requestForm(path, formData, method = "POST") {
+  const res = await fetch(`${BASE}${path}`, { method, body: formData })
 
   if (!res.ok) {
     let body = null
@@ -98,4 +98,28 @@ export const api = {
     request(`/brands/${brandId}/agent/run`, { method: "POST", body: JSON.stringify({ goal }) }),
   listCampaigns: (brandId) => request(`/brands/${brandId}/campaigns`),
   getCampaign: (campaignId) => request(`/campaigns/${campaignId}`),
+
+  // F8 (light): asset library (save-on-check).
+  listAssets: (brandId, { type, limit = 100, offset = 0 } = {}) => {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+    if (type) params.set("type", type)
+    return request(`/brands/${brandId}/assets?${params}`)
+  },
+  getAsset: (brandId, assetId) => request(`/brands/${brandId}/assets/${assetId}`),
+  saveAsset: (brandId, file, type = "other") => {
+    const form = new FormData()
+    form.append("image", file)
+    form.append("type", type)
+    return requestForm(`/brands/${brandId}/assets`, form)
+  },
+  deleteAsset: (brandId, assetId) =>
+    request(`/brands/${brandId}/assets/${assetId}`, { method: "DELETE" }),
+
+  // F10: Brand Audit.
+  runAudit: (brandId, files) => {
+    const form = new FormData()
+    files.forEach((f) => form.append("images", f))
+    return requestForm(`/brands/${brandId}/audit`, form)
+  },
+  listAudits: (brandId) => request(`/brands/${brandId}/audits`),
 }

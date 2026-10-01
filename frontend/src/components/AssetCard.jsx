@@ -9,10 +9,11 @@ const TYPE_LABELS = {
   post: 'Instagram post',
   story: 'Story',
   whatsapp: 'WhatsApp creative',
+  other: 'Upload',
 }
 
 export function AssetCard({ asset, showScore = true }) {
-  const { id, type, label, size, signal_match, signal_verdict, slots, knobs } = asset
+  const { id, type, label, size, signal_match, signal_verdict, slots, knobs, png_url } = asset
   const pass = signal_verdict === 'pass'
 
   return (
@@ -25,6 +26,7 @@ export function AssetCard({ asset, showScore = true }) {
           knobs={knobs}
           palette={brandData.palette}
           fonts={brandData.fonts}
+          pngUrl={png_url}
         />
       </div>
 
@@ -39,7 +41,7 @@ export function AssetCard({ asset, showScore = true }) {
               <p className="font-mono text-[11px] text-zinc-400 dark:text-zinc-600">{size}</p>
             )}
           </div>
-          {showScore && signal_match !== undefined && (
+          {showScore && signal_match !== undefined && signal_match !== null && (
             <span
               className={`shrink-0 rounded-sm px-2 py-0.5 font-mono text-[12px] font-semibold ${
                 pass
@@ -53,7 +55,7 @@ export function AssetCard({ asset, showScore = true }) {
         </div>
 
         {/* Score bar */}
-        {showScore && signal_match !== undefined && (
+        {showScore && signal_match !== undefined && signal_match !== null && (
           <div className="h-px w-full bg-zinc-200 dark:bg-zinc-800">
             <div
               className={`h-px transition-all ${pass ? 'bg-emerald-600' : 'bg-amber-500'}`}
