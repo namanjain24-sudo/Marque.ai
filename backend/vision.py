@@ -108,7 +108,7 @@ MAX_DIMENSION = 1280
 JPEG_QUALITY = 85
 
 
-def _prepare_image(data: bytes) -> tuple[bytes, str]:
+def prepare_image(data: bytes) -> tuple[bytes, str]:
     """Decode, downscale to MAX_DIMENSION, and re-encode as JPEG. Also the
     re-encode PRD Table 21 suggests for uploads generally, and it collapses
     PNG/JPEG/WebP input to one format so the model always sees the same kind
@@ -236,7 +236,7 @@ async def check_signals(profile: BrandProfile, image_bytes: bytes, round_num: in
         raise VisionNotConfiguredError("OPENROUTER_API_KEY is not configured")
     model = os.environ.get("OPENROUTER_SIGNAL_MODEL", "qwen/qwen3-vl-32b-instruct")
 
-    resized_bytes, resized_mime = _prepare_image(image_bytes)
+    resized_bytes, resized_mime = prepare_image(image_bytes)
     image_b64 = base64.b64encode(resized_bytes).decode("ascii")
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},

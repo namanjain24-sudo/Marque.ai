@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
@@ -280,3 +281,81 @@ class AgentRunIn(BaseModel):
     drives deterministic campaign generation."""
 
     goal: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+
+
+# --- F8 (light): asset library (save-on-check) ---
+
+AssetTypeT = Literal["poster", "post", "story", "whatsapp", "other"]
+
+
+class LibraryAsset(BaseModel):
+    """A saved library asset. Today the only source is an uploaded image that
+    went through Signal Check ('save-on-check'), so `png_url` points at the
+    stored photo and `slots`/`knobs` are null. A future F5-rendered asset would
+    set `source="rendered"` and carry `slots`/`knobs` for AssetPreview's CSS
+    mockup instead of a real image."""
+
+    id: str
+    brand_id: str
+    source: Literal["upload", "rendered"] = "upload"
+    type: AssetTypeT = "other"
+    label: str = ""
+    png_url: str | None = None
+    signal_match: int | None = None
+    signal_verdict: Literal["pass", "needs_fix"] | None = None
+    slots: AssetSlots | None = None
+    knobs: AssetKnobs | None = None
+    created_at: datetime
+
+
+# --- F10: Brand Audit (PRD Section 7 F10, Section 9.5) ---
+
+
+class VisionAuditResponse(BaseModel):
+    """What the vision LLM returns per image for an audit. Extends the Signal
+    Check critic shape with explicit style tags so we can count distinct
+    treatments across images (PRD F10's 'N font styles, M colour treatments').
+    As in F4, the detected positioning is the only thing used for the
+    deterministic consistency score - the model is never trusted for arithmetic."""
+
+    detected: Positioning
+    font_style: FontStyleT
+    photo_tone: PhotoToneT
+    colours: list[Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=30)]] = Field(
+        min_length=1, max_length=4
+    )
+    issue: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
+
+
+class AuditCounts(BaseModel):
+    font_styles: int = Field(ge=0)
+    colour_treatments: int = Field(ge=0)
+    photo_styles: int = Field(ge=0)
+
+
+class AuditIssue(BaseModel):
+    text: str
+    suggested_fix: str
+
+
+class AuditReport(BaseModel):
+    """PRD F10 output: a consistency score, distinct-treatment counts, and the
+    top issues each with a suggested fix. `consistency_score` is computed in
+    code from the per-image positioning spread (our formula - the PRD gives the
+    0-100 range but no formula), not taken from the model."""
+
+    consistency_score: int = Field(ge=0, le=100)
+    summary: str
+    counts: AuditCounts
+    issues: list[AuditIssue] = Field(max_length=3)
+    alerts: list[str] = Field(default_factory=list)
+    image_count: int = Field(ge=2, le=5)
+
+
+class AuditRecord(BaseModel):
+    """A persisted audit, returned by GET /audits (history)."""
+
+    id: str
+    brand_id: str
+    created_at: datetime
+    report: AuditReport
