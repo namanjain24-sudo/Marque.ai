@@ -40,9 +40,19 @@ def _mock_critic(httpx_mock, times: int = 1):
 
 
 async def _create_brand(client, **overrides):
+    # Brand creation is setup, not the thing under test here. Force the heuristic
+    # DNA path (no network) even if the test has set a key for the signal-check
+    # call, so onboarding doesn't fire an unmocked LLM request.
+    import os
+
     payload = {"name": "Asset Test", "category": "Cafe", "price_level": 2}
     payload.update(overrides)
-    resp = await client.post("/v1/brands", json=payload)
+    saved = os.environ.pop("OPENROUTER_API_KEY", None)
+    try:
+        resp = await client.post("/v1/brands", json=payload)
+    finally:
+        if saved is not None:
+            os.environ["OPENROUTER_API_KEY"] = saved
     assert resp.status_code == 201
     return resp.json()
 

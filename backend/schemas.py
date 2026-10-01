@@ -93,6 +93,22 @@ class BrandProfile(BaseModel):
     _check_meaning = field_validator("meaning")(_validate_meaning)
 
 
+class BrandDNAProposal(BaseModel):
+    """P1 — the qualitative Brand DNA an LLM (or the heuristic fallback) proposes
+    at onboarding. The LLM is trusted ONLY for these judgment fields; palette and
+    fonts stay F3's curated-template job (SPEC-P1 §3), and every field is held to
+    the SAME caps as hand-entered Brand Memory so the model can't exceed the app's
+    own limits (bounded strings, list sizes, 0-100 positioning)."""
+
+    positioning: Positioning
+    do: list[RuleStr] = Field(min_length=1, max_length=MAX_LIST_ITEMS)
+    dont: list[RuleStr] = Field(min_length=1, max_length=MAX_LIST_ITEMS)
+    tone: ShortStr
+    meaning: dict[str, str] = Field(default_factory=dict)
+
+    _check_meaning = field_validator("meaning")(_validate_meaning)
+
+
 class BrandCreate(BaseModel):
     """What the owner provides at onboarding (F1). Everything else is filled in later."""
 

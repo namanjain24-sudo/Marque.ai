@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from brand_dna import propose_do_dont, propose_positioning, propose_tone
+from brand_dna import propose_brand_dna
 from db import get_session
 from identity import propose_identity
 from models import Brand, new_id
@@ -31,22 +31,38 @@ async def create_brand(payload: BrandCreate, session: AsyncSession = Depends(get
     override this starting palette/fonts; this just avoids showing a blank
     draft before the owner gets there.
     """
-    do, dont = propose_do_dont(payload.price_level)
-    positioning = propose_positioning(payload.personality, payload.price_level)
+    # One DNA call: LLM when a key is present, else the deterministic heuristic.
+    # Either way we get the same BrandDNAProposal shape; `dna_source` is logged,
+    # not exposed in the response (SPEC-P1 decision). A failed LLM call falls
+    # back internally, so this never raises on AI trouble.
+    dna, dna_source = await propose_brand_dna(
+        name=payload.name,
+        category=payload.category,
+        city=payload.city,
+        audience=payload.audience,
+        price_level=payload.price_level,
+        personality=payload.personality,
+        products=[p.name for p in payload.products],
+    )
 
     profile = BrandProfile(
         id=new_id("brand"),
-        positioning=positioning,
-        do=do,
-        dont=dont,
-        voice=Voice(tone=propose_tone(payload.personality)),
+        positioning=dna.positioning,
+        do=dna.do,
+        dont=dna.dont,
+        voice=Voice(tone=dna.tone),
+        meaning=dict(dna.meaning),
         **payload.model_dump(),
     )
 
+    # Palette/fonts stay F3's curated-template job — the LLM never invents hex
+    # codes (SPEC-P1 §3). The template also carries a `meaning` map; use it only
+    # when the DNA path (heuristic) didn't supply one.
     draft_direction = propose_identity(profile.positioning, n=1)[0]
     profile.palette = Palette(**draft_direction["palette"])
     profile.fonts = Fonts(**draft_direction["fonts"])
-    profile.meaning = dict(draft_direction["meaning"])
+    if not profile.meaning:
+        profile.meaning = dict(draft_direction["meaning"])
 
     brand = Brand(id=profile.id, profile_json=profile.model_dump(mode="json"))
     session.add(brand)
