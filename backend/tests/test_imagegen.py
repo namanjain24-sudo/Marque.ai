@@ -111,8 +111,9 @@ async def test_try_generate_hero_swallows_upstream_error(monkeypatch, httpx_mock
 # --- integration: generate_campaign attaches hero images -----------------
 
 @pytest.mark.httpx_mock(assert_all_responses_were_requested=False)
-async def test_campaign_attaches_hero_images_when_key_present(monkeypatch, httpx_mock):
+async def test_campaign_attaches_hero_images_when_enabled(monkeypatch, httpx_mock):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("MARQUE_HERO_IMAGES", "1")
     # With a key present the copywriter also fires (and falls back to regex when
     # it gets an image-shaped reply) before the 4 image calls. Queue plenty of
     # image responses; unused ones are fine (assert flag above).
@@ -131,6 +132,7 @@ async def test_campaign_attaches_hero_images_when_key_present(monkeypatch, httpx
 
 async def test_campaign_without_key_leaves_hero_none(monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("MARQUE_HERO_IMAGES", raising=False)
     brand = _brand()
     campaign = await generate_campaign(brand, "Launch truffle burger at ₹399", today="2026-10-01")
     assert all(a["slots"].get("hero_image") is None for a in campaign["assets"])
@@ -138,9 +140,20 @@ async def test_campaign_without_key_leaves_hero_none(monkeypatch):
     assert len(campaign["assets"]) == 4
 
 
+async def test_image_gen_flag_gate(monkeypatch):
+    """Key present but the opt-in flag off -> image gen stays disabled (cost
+    control: the key alone does not opt you into paid image generation)."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.delenv("MARQUE_HERO_IMAGES", raising=False)
+    assert imagegen.image_gen_enabled() is False
+    monkeypatch.setenv("MARQUE_HERO_IMAGES", "1")
+    assert imagegen.image_gen_enabled() is True
+
+
 @pytest.mark.httpx_mock(assert_all_responses_were_requested=False)
 async def test_campaign_survives_image_failure(monkeypatch, httpx_mock):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("MARQUE_HERO_IMAGES", "1")
     # All calls 500 -> copy falls back to regex, heroes stay None, campaign still
     # succeeds. Queue extra error responses; unused ones are fine (flag above).
     for _ in range(8):

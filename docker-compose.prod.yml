@@ -21,6 +21,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-marque}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENROUTER_SIGNAL_MODEL: ${OPENROUTER_SIGNAL_MODEL:-qwen/qwen3-vl-32b-instruct}
+      OPENROUTER_IMAGE_MODEL: ${OPENROUTER_IMAGE_MODEL:-google/gemini-2.5-flash-image}
+      # Opt-in to paid hero-image generation on campaign runs (~$0.04/image, 4
+      # per campaign). Off unless set; the API key alone does not enable it.
+      MARQUE_HERO_IMAGES: ${MARQUE_HERO_IMAGES:-1}
     depends_on:
       db:
         condition: service_healthy

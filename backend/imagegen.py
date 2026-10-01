@@ -45,9 +45,17 @@ def _model_name() -> str:
 
 
 def image_gen_enabled() -> bool:
-    """True when hero image generation can run (an API key is present). Lets the
-    campaign flow decide up front whether to spend on images at all."""
-    return bool(os.environ.get("OPENROUTER_API_KEY"))
+    """True when hero image generation should run: an API key is present AND the
+    explicit opt-in flag `MARQUE_HERO_IMAGES` is truthy.
+
+    Two gates on purpose: image generation is the most expensive call in the app
+    (~$0.04/image, 4 per campaign), so it is OFF unless a deployment deliberately
+    turns it on — the key alone (needed for signal-check and copy) does not opt
+    you in. This also keeps the test suite and dev runs from ever spending on
+    images: tests never set the flag."""
+    if not os.environ.get("OPENROUTER_API_KEY"):
+        return False
+    return os.environ.get("MARQUE_HERO_IMAGES", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 # Aspect guidance per format so the hero suits the frame it lands in.
