@@ -85,11 +85,13 @@ def test_headline_empty_dont_list_returns_headline():
 # ---------------------------------------------------------------------------
 
 
-def test_generate_campaign_returns_four_assets():
+async def test_generate_campaign_returns_four_assets(monkeypatch):
     """generate_campaign must return a dict with exactly 4 assets covering
-    poster, post, story, and whatsapp formats."""
+    poster, post, story, and whatsapp formats. No AI key -> LLM copy + hero
+    image both skip to their deterministic/gradient fallbacks."""
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     brand = _minimal_brand()
-    campaign = generate_campaign(brand, "Launch truffle burger at ₹399", today="2026-10-01")
+    campaign = await generate_campaign(brand, "Launch truffle burger at ₹399", today="2026-10-01")
 
     assert isinstance(campaign, dict)
     assert len(campaign["assets"]) == 4

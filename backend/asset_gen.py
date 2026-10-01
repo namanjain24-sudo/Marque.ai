@@ -206,6 +206,13 @@ async def generate_campaign(brand: BrandProfile, goal: str, *, today: str) -> di
             }
         )
 
+    # Hero backgrounds (best-effort, behind the AI seam). Each asset gets its own
+    # textless background image from a prompt distinct per format + photo_tone, so
+    # the 4 assets don't share one picture. On no-key or any failure the slot
+    # stays None and AssetPreview falls back to the gradient — image generation
+    # never fails a campaign.
+    await _attach_hero_images(brand, assets)
+
     return {
         "id": new_id("c"),
         "name": headline,
@@ -215,3 +222,43 @@ async def generate_campaign(brand: BrandProfile, goal: str, *, today: str) -> di
         "date": today,
         "assets": assets,
     }
+
+
+async def _attach_hero_images(brand: BrandProfile, assets: list[dict]) -> None:
+    """Generate one hero background per asset and store it to /media, writing the
+    public URL into each asset's `slots.hero_image`. Mutates `assets` in place.
+    Entirely best-effort: if image-gen is disabled or any single image fails,
+    that asset simply keeps hero_image=None (gradient)."""
+    from imagegen import build_prompt, generate_heroes, image_gen_enabled
+    from uploads import save_image
+    from vision import prepare_image
+
+    if not image_gen_enabled():
+        return
+
+    prompts = [
+        build_prompt(
+            brand_name=brand.name,
+            category=brand.category,
+            fmt=a["type"],
+            headline=a["slots"].get("headline") or brand.name,
+            photo_tone=a["knobs"].get("photo_tone", "warm"),
+        )
+        for a in assets
+    ]
+
+    try:
+        heroes = await generate_heroes(prompts)
+    except Exception as exc:  # defensive — never let image-gen break generation
+        logger.warning("Hero image batch failed (%s); keeping gradients", exc)
+        return
+
+    for asset, raw in zip(assets, heroes, strict=False):
+        if not raw:
+            continue
+        try:
+            jpeg_bytes, _mime = prepare_image(raw)
+            url = save_image(jpeg_bytes, f"hero_{asset['id']}")
+            asset["slots"]["hero_image"] = url
+        except Exception as exc:  # a bad image for one asset must not sink the rest
+            logger.info("Hero image for %s skipped (%s)", asset["id"], exc)
