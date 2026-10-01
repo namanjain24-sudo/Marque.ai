@@ -1,12 +1,13 @@
 // pages/Editor.jsx — asset editor with live preview, rules check, signal card
 import { CheckCircle, WarningCircle, XCircle } from "@phosphor-icons/react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useParams } from "react-router-dom"
 import { AssetPreview } from "../components/AssetPreview"
+import { AutoFixResult } from "../components/AutoFixResult"
 import { Container } from "../components/Container"
-import { SignalCard } from "../components/SignalCard"
 import { Toast, useToast } from "../components/Toast"
 import { useBrand } from "../context/BrandContext"
+import { useAutoFix } from "../hooks/useAutoFix"
 import campaignData from "../mock/campaign.json"
 import { rulesStatusList } from "../lib/rules"
 
@@ -42,7 +43,9 @@ export function Editor() {
   const [slots, setSlots] = useState({ ...baseAsset.slots })
   const [knobs, setKnobs] = useState({ ...baseAsset.knobs })
   const [activeSize, setActiveSize] = useState(baseAsset.type)
-  const [checking, setChecking] = useState(false)
+
+  const previewRef = useRef(null)
+  const { run, rounds, running, error, reset } = useAutoFix(brand?.id)
 
   function updateSlot(key, value) {
     setSlots((s) => ({ ...s, [key]: value }))
@@ -52,10 +55,16 @@ export function Editor() {
     setKnobs((k) => ({ ...k, [key]: value }))
   }
 
+  // Real F4 auto-fix loop: rasterize the live preview, check it, and if it
+  // needs fixing, apply the critic's knobs (which re-renders this very
+  // preview) and re-check — up to 2 rounds.
   async function recheck() {
-    setChecking(true)
-    await new Promise((r) => setTimeout(r, 1500))
-    setChecking(false)
+    reset()
+    await run({
+      getNode: () => previewRef.current,
+      applyKnobs: (next) => setKnobs(next),
+      knobs,
+    })
   }
 
   const rules = rulesStatusList({ slots, knobs, palette: brand.palette, brand })
@@ -69,10 +78,10 @@ export function Editor() {
             <button
               type="button"
               onClick={recheck}
-              disabled={checking}
+              disabled={running}
               className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:border-zinc-400 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300"
             >
-              {checking ? "Checking…" : "Re-check signal"}
+              {running ? "Checking…" : "Check & auto-fix"}
             </button>
             <button
               type="button"
@@ -106,13 +115,16 @@ export function Editor() {
             </div>
 
             <div className="border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
-              <AssetPreview
-                type={activeSize}
-                slots={slots}
-                knobs={knobs}
-                palette={brand.palette}
-                fonts={brand.fonts}
-              />
+              {/* ref wraps only the asset so the rasterized PNG is the asset itself */}
+              <div ref={previewRef} className="mx-auto w-full max-w-[360px]">
+                <AssetPreview
+                  type={activeSize}
+                  slots={slots}
+                  knobs={knobs}
+                  palette={brand.palette}
+                  fonts={brand.fonts}
+                />
+              </div>
             </div>
           </div>
 
@@ -218,8 +230,11 @@ export function Editor() {
               </ul>
             </div>
 
-            {/* Signal card */}
-            <SignalCard />
+            {/* Live Signal Check + auto-fix result */}
+            <div>
+              <h2 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Signal Check</h2>
+              <AutoFixResult rounds={rounds} running={running} error={error} />
+            </div>
           </div>
         </div>
       </Container>

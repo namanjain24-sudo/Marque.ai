@@ -21,7 +21,7 @@ import httpx
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import ValidationError
 
-from schemas import BrandProfile, Positioning, SignalGaps, SignalResult, VisionCriticResponse
+from schemas import BrandProfile, FixKnobs, Positioning, SignalGaps, SignalResult, VisionCriticResponse
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -165,7 +165,17 @@ async def _call_model(client: httpx.AsyncClient, api_key: str, model: str, messa
             "Content-Type": "application/json",
             "X-Title": "Marque.ai",
         },
-        json={"model": model, "messages": messages, "temperature": 0, "max_tokens": 1000},
+        json={
+            "model": model,
+            "messages": messages,
+            "temperature": 0,
+            "max_tokens": 1000,
+            # Force well-formed JSON from the critic. Without this the model
+            # occasionally emits a trailing comma / unquoted key and the whole
+            # check 502s (observed live in prod). Belt-and-suspenders with the
+            # parse-and-retry-once path below.
+            "response_format": {"type": "json_object"},
+        },
         timeout=45,
     )
     if response.status_code != 200:
@@ -195,6 +205,29 @@ def _compute_result(critic: VisionCriticResponse, target: Positioning, round_num
         evidence=critic.evidence,
         fix=critic.fix,
     )
+
+
+def apply_fix_knobs(current: dict, fix: FixKnobs) -> dict:
+    """Merge the critic's sparse suggested knobs over an asset's current knobs,
+    returning a new dict (the F4 fix loop's 'revise style knobs' step). Only the
+    knobs the critic actually set are changed; floats are clamped to their valid
+    renderer ranges so a suggestion can never push a knob out of bounds.
+
+    This is the backend's canonical merge; the frontend mirrors the same logic
+    in lib/signal.js so it can re-render round 2 without a round-trip. Kept here
+    too so the loop is testable server-side and a future server-side renderer
+    reuses it.
+    """
+    from knobs import ACCENT_RANGE, OVERLAY_RANGE
+
+    updated = dict(current)
+    for field, value in fix.model_dump(exclude_none=True).items():
+        if field == "accent_usage":
+            value = max(ACCENT_RANGE[0], min(ACCENT_RANGE[1], value))
+        elif field == "overlay":
+            value = max(OVERLAY_RANGE[0], min(OVERLAY_RANGE[1], value))
+        updated[field] = value
+    return updated
 
 
 async def check_signals(profile: BrandProfile, image_bytes: bytes, round_num: int = 1) -> SignalResult:
