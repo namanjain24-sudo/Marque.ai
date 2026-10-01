@@ -77,6 +77,75 @@ A static monochrome schematic version is also kept at
 [`docs/architecture.svg`](docs/architecture.svg) /
 [`docs/architecture.png`](docs/architecture.png).
 
+### Deployment &amp; invariants
+
+| Deployment | Invariants (never break) |
+| --- | --- |
+| **host** `marque.skunkworkslab.online` | never a `503` — heuristic fallback instead |
+| **stack** FastAPI · React · PG16 · Caddy | `match` / scores computed in Python, never the LLM |
+| **infra** Azure VM · 2GB · Docker Compose | AI is key-gated — absent key ⇒ heuristic, zero spend |
+| **tests** 132 pass · 0 credits in CI | text = HTML layers, never drawn by an image model |
+
+### Layers, top to bottom
+
+**L1 · CLIENT — browser-as-renderer**
+
+| Node | What it does |
+| --- | --- |
+| **U1 · Workspace / 3-col chat** `①` | AskBar → `goal : str(1..500)`. e.g. _"Launch truffle burger @ ₹399 this weekend"_. chat · results-pane · TracePanel |
+| **U2 · AssetPreview (CSS)** | `palette+fonts ← useBrand()` · 4 knob-driven layout variants · text drawn as HTML, never by an image model |
+| **U3 · rasterize.js** | AssetPreview DOM → PNG blob · multipart → signal-check · rasterize for scoring only, not export |
+| **U4 · Library / Campaigns / Brand** | where every AI result lands · signal badges · `source=rendered|upload` · read/filter surfaces, no gen here |
+
+**L2 · EDGE — TLS · static · proxy**
+
+| Node | What it does |
+| --- | --- |
+| **N1 · Caddy (reverse proxy)** `②` | auto Let's Encrypt · TLS terminate · `:80 → :443` (308) · certs in volume · only service exposed to internet |
+| **N2 · nginx (frontend container)** | serve SPA (`dist`) · proxy `/api/*` · `/media/*` → `backend:8000` · internal only, no host port |
+| _Docker Compose (prod)_ | `caddy` · `frontend(nginx)` · `backend(uvicorn)` · `db(postgres16)` · volumes: `pgdata·media·caddy` · DB + `:8000` not published to host |
+
+**L3 · API — FastAPI routers · orchestrator**
+
+| Node | What it does |
+| --- | --- |
+| **R0 · `POST /v1/brands/{id}/agent/run`** `③` | `classify_intent(goal)` [keyword → LLM, temp 0] · dispatch → generate · read · memory · evaluate · inject Brand Memory block · do/dont enforced in Python · confirmation-gated writes |
+| **R1 · brands / memory** | `PATCH /memory` · `POST /rules` · `identity/apply` · `v++` |
+| **R2 · signal-check** | `multipart(image,round)` · 422/502 typed · **never 503** |
+| **R3 · campaigns / assets** | GET lists · `GET /campaigns/{id}` · library · audits |
+| **M0 · Brand Memory · `BrandProfile vN`** | positioning · do/dont · voice · palette · fonts (single source of truth) |
+
+**L4·L5 · ENGINES — reliability pattern · LLM ⇄ heuristic**
+
+| Node | What it does |
+| --- | --- |
+| **E1 · asset_gen · F5** `④` | `slots{headline,sub,price,cta,logo}` · 6 knobs → 4 assets (poster/post/story/wa) · dont-guard · Facts Rule (price regex) · LLM copy ⇄ regex fallback |
+| **E2 · vision · F4 ★crown** `⑤` | 4 axes: premium·modern·playful·niche · detected vs target → gaps (signed) · `match = 100 − avg|gap|` (Python) · LLM ⇄ `match=50` heuristic · verdict pass/fix |
+| **E3 · brand_dna · F1** | positioning · do/dont · tone · meaning → `BrandDNAProposal` · shared 0/25/50/75/100 rubric · LLM ⇄ lookup tables |
+| **E5 · identity · F3** | 5 curated templates · nearest-2 cosine (positioning) → palette + fonts + meaning · deterministic · offline · 0 credits |
+| **E6 · audit · F10** | 2–5 img consistency · `VisionAuditResponse` · `consistency_score` (Python) · LLM ⇄ heuristic score |
+
+> **Reliability seam (all AI engines):** Pydantic schema + `response_format:json_object` → parse/validate → retry×1 → typed error → heuristic fallback · temp 0 · LLM judgment-only, never arithmetic · auto-switch on `OPENROUTER_API_KEY` · mocked tests, 0-credit.
+
+**L6 · PERSISTENCE &amp; external**
+
+| Node | What it does |
+| --- | --- |
+| **DB · Postgres 16** `⑥` | `brands·campaigns·assets·products·audits·runs` · persist campaign+assets+run · seeded idempotent @ boot · result surfaces back in U4 |
+| **X1 · OpenRouter (external)** | vision + text models · key-gated · absent ⇒ heuristic path, zero spend |
+| **V1 · media volume** | uploaded PNG / rendered exports · `/media` static mount (StaticFiles) · bind volume survives redeploy |
+
+### Agent data path (`①→⑥`)
+
+```text
+① U1  goal typed in AskBar
+② N1  Caddy TLS → N2 nginx proxy → R0
+③ R0  classify_intent → inject Brand Memory → dispatch
+④ E1  asset_gen → slots + knobs → 4 assets
+⑤ E2  rasterized PNG → vision Signal Check → match/verdict
+⑥ DB  persist campaign + assets + run → lands back in U4 (Library)
+```
+
 ## Structure
 
 - `frontend/` — Vite + React, served via nginx in production (also proxies `/api/*` to the backend)
