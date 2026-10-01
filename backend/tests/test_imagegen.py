@@ -162,3 +162,40 @@ async def test_campaign_survives_image_failure(monkeypatch, httpx_mock):
     campaign = await generate_campaign(brand, "Launch truffle burger at ₹399", today="2026-10-01")
     assert len(campaign["assets"]) == 4
     assert all(a["slots"].get("hero_image") is None for a in campaign["assets"])
+
+
+# --- brandify prompt + image-edit ----------------------------------------
+
+def test_build_brandify_prompt_injects_brand():
+    from imagegen import build_brandify_prompt
+
+    brand = _brand(
+        name="Burger Lab",
+        category="Restaurant",
+        dont=["Never use green as primary"],
+    )
+    p = build_brandify_prompt(brand)
+    assert "Burger Lab" in p
+    assert "Restaurant" in p
+    # Preserve-subject + no-text guardrails must be present.
+    assert "SAME subject" in p
+    assert "NO" in p.upper() and "text" in p.lower()
+    # Don't-rule injected.
+    assert "green as primary" in p
+
+
+async def test_brandify_image_happy_path(monkeypatch, httpx_mock):
+    from imagegen import brandify_image
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    httpx_mock.add_response(url=OPENROUTER_URL, json=_image_response(_png_data_url()))
+    out = await brandify_image(b"\x89PNG\r\n\x1a\n" + b"x" * 20, _brand())
+    assert out[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+async def test_brandify_image_no_key_raises(monkeypatch):
+    from imagegen import ImageGenNotConfigured, brandify_image
+
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    with pytest.raises(ImageGenNotConfigured):
+        await brandify_image(b"x", _brand())
