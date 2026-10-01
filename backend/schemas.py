@@ -299,6 +299,42 @@ class AgentRunIn(BaseModel):
     goal: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 
 
+class TraceStep(BaseModel):
+    """P4 — one real step the orchestrator actually executed, with how long it
+    took. Not a canned animation: the frontend renders exactly what ran."""
+
+    label: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+    ms: int = Field(ge=0)
+
+
+AgentIntentT = Literal["create_campaign", "brand_question", "update_memory"]
+
+
+class AgentRunOut(BaseModel):
+    """P4 — the orchestrator's result. `intent` says which branch ran; exactly one
+    of campaign/answer/memory is populated to match it. `trace` is the real step
+    list. `source` (llm|heuristic) records whether intent classification used the
+    LLM — logged/returned for the 'real AI' signal, bounded so it's safe to show."""
+
+    intent: AgentIntentT
+    source: Literal["llm", "heuristic"]
+    trace: list[TraceStep] = Field(default_factory=list)
+    reply: Annotated[str, StringConstraints(strip_whitespace=True, max_length=600)] = ""
+    campaign: "CampaignOut | None" = None
+    memory_field: Literal["do", "dont", "preferences"] | None = None
+    memory_value: str | None = None
+
+
+class AgentIntent(BaseModel):
+    """What the intent classifier LLM returns. For update_memory it also extracts
+    the field + the rule text; for brand_question it may carry a direct answer."""
+
+    intent: AgentIntentT
+    # For update_memory: which list and the rule to append (model-extracted).
+    memory_field: Literal["do", "dont", "preferences"] | None = None
+    memory_value: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)] | None = None
+
+
 class CreativeCore(BaseModel):
     """P2 — the on-brand copy an LLM (or the regex fallback) writes from a goal +
     the full brand profile. The model writes WORDS only; the price badge, CTA per

@@ -1,28 +1,17 @@
-// hooks/useAgent.js — real agent run, same shape as useMockAgent so it's a
-// drop-in. Calls POST /v1/brands/{id}/agent/run to generate a campaign.
+// hooks/useAgent.js — real agent run (P4). Calls POST /v1/brands/{id}/agent/run,
+// which now classifies intent (create_campaign | brand_question | update_memory),
+// does the matching thing, and returns a REAL trace of the steps that ran plus a
+// natural-language `reply`. So the ask bar is a real router, not just "make a
+// campaign": ask "what's our tone?" and it answers; say "never use neon" and it
+// remembers.
 //
-// The trace is a derived step list for now (not a live stream) — a real
-// streamed/SSE trace from a true orchestrator (F7) is a later item. The price
-// nudge is kept: if the goal has no price, ask for one before running, matching
-// the product's "it asks a clarifying question" behaviour.
-//
+// The price nudge is kept but only for a clear generation goal with no price.
 // messages: conversation history of shape { role: "user"|"ai", content: string }
 import { useCallback, useState } from 'react'
 import { api } from '../lib/api'
 
-const TRACE_STEPS = [
-  'Loaded Brand Memory',
-  'Planned 4 assets',
-  'Wrote creative core',
-  'Rendered poster',
-  'Rendered Instagram post',
-  'Rendered story',
-  'Rendered WhatsApp creative',
-  'Campaign ready for approval',
-]
-
-// Words that signal the user wants a new asset/campaign (vs. a read question
-// like "what's our palette?"). The price nudge only makes sense for these.
+// A clear "make me an asset" goal (so the price nudge only fires for those, and
+// never blocks a question/memory message).
 const GENERATION_INTENT = /\b(poster|post|story|whatsapp|campaign|launch|create|make|generate|run|ad|offer|promo|sale|combo|deal)\b/i
 
 export function useAgent(brandId) {
@@ -40,9 +29,8 @@ export function useAgent(brandId) {
       setQuestion(null)
       setError(null)
 
-      // Price nudge: only for generation-intent goals ("make a poster…") that
-      // have no price. A read-style question ("what's our palette?") must NOT be
-      // blocked for lacking a number.
+      // Price nudge: only for a generation goal with no price. A question
+      // ("what's our palette?") or a rule ("never use neon") must not be blocked.
       if (GENERATION_INTENT.test(message) && !/[₹\d]/.test(message)) {
         setQuestion('What price should I put on it?')
         return null
@@ -52,25 +40,27 @@ export function useAgent(brandId) {
         return null
       }
 
-      // Push user message immediately
       setMessages((prev) => [...prev, { role: 'user', content: message }])
-
       setRunning(true)
       try {
         const result = await api.agentRun(brandId, message)
-        setCampaign(result)
-        setTrace(TRACE_STEPS)
-        // Push ai response
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: 'ai',
-            content: `Generated campaign "${result.name}" — ${result.assets?.length ?? 0} assets`,
-          },
-        ])
+        // Real trace from the backend (array of { label, ms }).
+        setTrace(result.trace ?? [])
+
+        // Route the result by the classified intent.
+        if (result.intent === 'create_campaign' && result.campaign) {
+          setCampaign(result.campaign)
+        }
+        // Every intent carries a human reply — show it in the chat.
+        const reply =
+          result.reply ||
+          (result.campaign
+            ? `Generated "${result.campaign.name}" — ${result.campaign.assets?.length ?? 0} assets`
+            : 'Done.')
+        setMessages((prev) => [...prev, { role: 'ai', content: reply }])
         return result
       } catch (err) {
-        setError(err.message || 'Could not generate the campaign.')
+        setError(err.message || 'Could not run that.')
         return null
       } finally {
         setRunning(false)
