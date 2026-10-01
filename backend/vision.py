@@ -74,11 +74,11 @@ this shape:
   "issue": "<one plain-language sentence naming the biggest gap between how this reads and the target, and what causes it>",
   "evidence": ["<short, concrete, visual observation>", "..."],
   "fix": {{
-    "density": "low" | "medium" | "high",
+    "density": "open" | "balanced",
     "font_style": "display_bold" | "serif_elegant" | "rounded_friendly" | "clean_sans",
     "photo_tone": "warm" | "neutral" | "cool" | "dark",
-    "accent_usage": "low" | "medium" | "high",
-    "overlay": <0.0-0.6>,
+    "accent_usage": <0.0-1.0>,
+    "overlay": <0.0-0.8>,
     "layout_variant": "left" | "center" | "split"
   }}
 }}

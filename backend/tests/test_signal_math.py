@@ -69,10 +69,13 @@ def test_fix_knobs_reject_unknown_values():
     with pytest.raises(ValidationError):
         FixKnobs(density="extreme")
     with pytest.raises(ValidationError):
-        FixKnobs(overlay=0.9)  # PRD 9.3: overlay is 0.0-0.6
+        FixKnobs(overlay=0.9)  # overlay is 0.0-0.8 (AssetPreview range)
+    with pytest.raises(ValidationError):
+        FixKnobs(accent_usage=1.5)  # accent_usage is 0.0-1.0
 
 
 def test_fix_knobs_accept_valid_subset():
-    knobs = FixKnobs(density="low", overlay=0.35)
-    assert knobs.density == "low"
+    knobs = FixKnobs(density="open", overlay=0.35, accent_usage=0.7)
+    assert knobs.density == "open"
+    assert knobs.accent_usage == 0.7
     assert knobs.font_style is None

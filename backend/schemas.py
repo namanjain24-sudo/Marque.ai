@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
-from knobs import KNOB_VALUES, OVERLAY_RANGE
+from knobs import ACCENT_RANGE, KNOB_VALUES, OVERLAY_RANGE
 
 # Reusable, bounded string types for public-facing input. Business identity
 # fields (name/category) are stripped and must be non-empty after stripping;
@@ -165,18 +165,20 @@ class BrandMemoryPatch(BaseModel):
 DensityT = Literal[tuple(KNOB_VALUES["density"])]
 FontStyleT = Literal[tuple(KNOB_VALUES["font_style"])]
 PhotoToneT = Literal[tuple(KNOB_VALUES["photo_tone"])]
-AccentUsageT = Literal[tuple(KNOB_VALUES["accent_usage"])]
 LayoutVariantT = Literal[tuple(KNOB_VALUES["layout_variant"])]
 
 
 class FixKnobs(BaseModel):
     """Style knobs the fix loop is allowed to change (PRD 9.3 / Table 14). All
-    optional - the critic only suggests the knobs it has an opinion on."""
+    optional - the critic only suggests the knobs it has an opinion on.
+
+    `accent_usage` and `overlay` are continuous (0-1 / 0-0.8) because that's how
+    the renderer (AssetPreview) consumes them; the rest are closed enums."""
 
     density: DensityT | None = None
     font_style: FontStyleT | None = None
     photo_tone: PhotoToneT | None = None
-    accent_usage: AccentUsageT | None = None
+    accent_usage: float | None = Field(default=None, ge=ACCENT_RANGE[0], le=ACCENT_RANGE[1])
     overlay: float | None = Field(default=None, ge=OVERLAY_RANGE[0], le=OVERLAY_RANGE[1])
     layout_variant: LayoutVariantT | None = None
 

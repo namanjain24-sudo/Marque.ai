@@ -22,7 +22,7 @@ VALID_CRITIC_JSON = {
     "detected": {"premium": 88, "modern": 82, "playful": 40, "niche": 60},
     "issue": "Reads more luxury and serious than the playful brand target.",
     "evidence": ["Gold thin serif headline reads luxury", "Dark empty space reads formal"],
-    "fix": {"font_style": "rounded_friendly", "accent_usage": "high"},
+    "fix": {"font_style": "rounded_friendly", "accent_usage": 0.9},
 }
 
 
