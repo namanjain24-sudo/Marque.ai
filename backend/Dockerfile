@@ -12,6 +12,10 @@ RUN uv sync --locked --no-install-project --no-dev
 COPY . .
 RUN uv sync --locked --no-dev
 
+# Mount point for uploaded media (a Docker volume mounts over this in deploy;
+# the mkdir guarantees the dir exists for StaticFiles even without a volume).
+RUN mkdir -p /app/media
+
 EXPOSE 8000
 
 CMD ["uv", "run", "--no-sync", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
