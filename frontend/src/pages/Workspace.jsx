@@ -35,6 +35,18 @@ export function Workspace() {
 
             {/* Chat history */}
             <div className="mt-6 space-y-3">
+              {/* Question / error feedback — shown in this panel on mobile (centre panel is lg-only) */}
+              {question && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-3 lg:hidden dark:border-amber-900 dark:bg-amber-950/20">
+                  <p className="text-[13px] font-medium text-amber-900 dark:text-amber-300">{question}</p>
+                  <p className="mt-0.5 text-[12px] text-amber-700 dark:text-amber-500">Add a price (e.g. ₹399) to continue.</p>
+                </div>
+              )}
+              {error && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-3 lg:hidden dark:border-red-900 dark:bg-red-950/20">
+                  <p className="text-[13px] font-medium text-red-900 dark:text-red-300">{error}</p>
+                </div>
+              )}
               {campaign && (
                 <div className="rounded-sm border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
                   <p className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">{campaign.name}</p>
