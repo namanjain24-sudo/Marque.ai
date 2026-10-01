@@ -3,15 +3,20 @@ mocked (pytest-httpx). The real integration is exercised manually against
 the live API, not in the suite that runs in CI without a key.
 """
 
-import base64
+import io
 import json
 
 import pytest
+from PIL import Image
 
-# Smallest valid 1x1 transparent PNG.
-TINY_PNG = base64.b64decode(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-)
+
+def _tiny_png() -> bytes:
+    buf = io.BytesIO()
+    Image.new("RGB", (4, 4), color=(230, 60, 70)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+TINY_PNG = _tiny_png()
 
 VALID_CRITIC_JSON = {
     "detected": {"premium": 88, "modern": 82, "playful": 40, "niche": 60},
@@ -58,6 +63,22 @@ async def test_422_on_non_image_upload(client, monkeypatch):
     resp = await client.post(
         f"/v1/brands/{brand['id']}/signal-check",
         files={"image": ("a.txt", b"not an image", "text/plain")},
+    )
+    assert resp.status_code == 422
+
+
+async def test_422_on_corrupt_image_with_valid_magic_bytes(client, monkeypatch):
+    # Passes the router's cheap magic-byte sniff (real PNG header) but isn't
+    # a decodable image after that — must still be rejected, not sent to the
+    # paid API. This is the exact shape of bug the Pillow validation step
+    # catches: a hand-typed test fixture elsewhere in this suite turned out
+    # to be exactly this (valid header, corrupt body) until it was fixed.
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    brand = await _create_brand(client)
+    corrupt = b"\x89PNG\r\n\x1a\n" + b"not actually png data" * 5
+    resp = await client.post(
+        f"/v1/brands/{brand['id']}/signal-check",
+        files={"image": ("a.png", corrupt, "image/png")},
     )
     assert resp.status_code == 422
 
@@ -194,3 +215,36 @@ async def test_round_defaults_to_1_and_is_bounded(client, monkeypatch, httpx_moc
         data={"round": "3"},
     )
     assert resp2.status_code == 422
+
+
+async def test_large_image_is_downscaled_before_being_sent(client, monkeypatch, httpx_mock):
+    # Cost control: a 3000x3000 upload must not go to the paid API at full
+    # resolution. Inspects the actual request body sent to OpenRouter.
+    import base64
+
+    from vision import MAX_DIMENSION
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    brand = await _create_brand(client)
+    large = io.BytesIO()
+    Image.new("RGB", (3000, 3000), color=(10, 200, 100)).save(large, format="PNG")
+
+    httpx_mock.add_response(
+        url="https://openrouter.ai/api/v1/chat/completions",
+        json=_openrouter_response(json.dumps(VALID_CRITIC_JSON)),
+    )
+    resp = await client.post(
+        f"/v1/brands/{brand['id']}/signal-check",
+        files={"image": ("big.png", large.getvalue(), "image/png")},
+    )
+    assert resp.status_code == 200
+
+    sent_body = json.loads(httpx_mock.get_requests()[0].content)
+    image_content = next(
+        part for part in sent_body["messages"][1]["content"] if part["type"] == "image_url"
+    )
+    data_url = image_content["image_url"]["url"]
+    assert data_url.startswith("data:image/jpeg;base64,")
+    sent_bytes = base64.b64decode(data_url.split(",", 1)[1])
+    sent_image = Image.open(io.BytesIO(sent_bytes))
+    assert max(sent_image.size) <= MAX_DIMENSION

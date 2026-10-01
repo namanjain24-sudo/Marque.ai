@@ -19,7 +19,7 @@ Product name is **Marque.ai** (the PRD's internal codename "BrandOS" is not used
 | F1+F2+F3 combined | ✅ Integration-tested together (same brand, multiple brands, persistence) |
 | **Frontend** | ✅ Real UI for F1-F3: marketing home, onboarding form, brand dashboard |
 | F4 — Brand Signaling + auto-fix (Check half) | ✅ Done, tested, verified against the live vision API — see below for what's intentionally not built yet |
-| Automated test suite | ✅ 89 pytest tests (`backend/tests/`), wired into CI with a Postgres service |
+| Automated test suite | ✅ 91 pytest tests (`backend/tests/`), wired into CI with a Postgres service |
 | F5 and onwards (Asset Creator, Campaign Agent, agent core, ...) | Not started |
 
 ---
@@ -524,6 +524,51 @@ oversight: see "What's deliberately not built" below.
   just that the API call succeeds.
 - Full suite (89 tests, all features) still green; `docker build` on the
   backend still succeeds from a clean image.
+
+### Cost and reliability pass (this round)
+
+You asked for cost to stay low and the thing to actually work well - did a
+real pass on both rather than assuming either.
+
+- **Measured actual cost, not guessed it.** OpenRouter returns real token
+  usage per call. A normal-sized photo (800x1000, 27 KB): **$0.00026/check**.
+  The same check on a 3000x4000 (553 KB) photo, unresized: **$0.00044** -
+  prompt tokens scale with image resolution, confirmed by measurement, not
+  assumption.
+- **Fixed: images are now downscaled before being sent** (`_prepare_image` in
+  `vision.py` - longest side capped at 1280px, re-encoded as JPEG). An
+  owner's phone photo can be 10-20 MP for no benefit here; judging
+  palette/typography/density doesn't need full resolution. After this
+  change, the same 3000x4000 photo costs **$0.0003** - cost is now bounded
+  regardless of what gets uploaded, instead of scaling with it. Re-verified
+  with a new test (`test_large_image_is_downscaled_before_being_sent`) that
+  actually decodes the bytes sent in the mocked request and checks their
+  pixel dimensions, not just that the call succeeded.
+- **This caught a real bug while I was at it**: Pillow's stricter decode (as
+  part of adding the resize step) rejected one of this suite's own test
+  fixtures - a hand-typed base64 PNG that had valid magic bytes but was
+  corrupt past the header. The old code never actually decoded uploaded
+  images (just re-encoded the raw bytes as base64 and sent them straight to
+  the paid API), so a corrupt upload would have silently cost money on a
+  request likely to fail or return garbage. Fixed the test fixture (now
+  generated with Pillow instead of hand-typed) and added
+  `InvalidImageError` -> 422, plus a dedicated test for exactly this shape
+  of bug (valid magic bytes, corrupt body) so it can't come back unnoticed.
+- **Verified determinism for real**: ran the identical image through
+  `check_signals` 3 times against the live API. All 3 runs returned the
+  exact same `detected` values and match score - temperature 0 and the
+  fixed rubric are actually doing their job, not just configured and hoped
+  to work.
+- **Verified the pass path, not just needs_fix**: every real test so far had
+  happened to fail (needs_fix). Built a brand whose target exactly matched
+  what the model was detecting for a test image and confirmed `verdict:
+  "pass"` with a gap of exactly 20 on one axis - the PRD's "no single axis
+  gap > 20" boundary (strictly greater than, not >=) held correctly in a
+  real response, not just in the unit test that asserts the same rule in
+  isolation.
+- Suite is now 91 tests (2 new: the corrupt-image case and the downscale
+  verification). Full suite green, Docker image rebuilds clean, and the
+  live dashboard UI re-tested end to end through the rebuilt container.
 
 ### What's deliberately not built
 

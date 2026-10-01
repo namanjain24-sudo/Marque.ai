@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db import get_session
 from models import Brand
 from schemas import BrandProfile, SignalResult
-from vision import VisionCheckError, VisionNotConfiguredError, check_signals
+from vision import InvalidImageError, VisionCheckError, VisionNotConfiguredError, check_signals
 
 router = APIRouter(prefix="/v1/brands/{brand_id}", tags=["signal"])
 
@@ -53,8 +53,10 @@ async def signal_check(
 
     profile = BrandProfile(**brand.profile_json)
     try:
-        return await check_signals(profile, data, mime, round_num=round)
+        return await check_signals(profile, data, round_num=round)
     except VisionNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail="Signal Check isn't configured on this deployment") from exc
+    except InvalidImageError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except VisionCheckError as exc:
         raise HTTPException(status_code=502, detail=f"Signal Check failed: {exc}") from exc
