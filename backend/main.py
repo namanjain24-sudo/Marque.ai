@@ -11,15 +11,14 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from db import SessionLocal, engine
-from models import Base, Brand
+from models import Base
 from routers.agent import campaigns_router, router as agent_router
 from routers.assets import router as assets_router
 from routers.audit import router as audit_router
 from routers.brands import router as brands_router
 from routers.identity import router as identity_router
 from routers.signal import router as signal_router
-from schemas import BrandProfile
-from seed import DEMO_BRAND_ID, DEMO_BRAND_PROFILE
+from seed import seed_all
 from uploads import media_dir
 
 
@@ -28,15 +27,11 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+    # Idempotent full demo seed (brand + products + campaigns + assets + audit +
+    # runs). Only writes what's missing, so this is safe on every boot and on a
+    # fresh prod DB — the deploy seeds itself with no manual step.
     async with SessionLocal() as session:
-        existing = await session.get(Brand, DEMO_BRAND_ID)
-        if existing is None:
-            # Validate through the same schema every other write path uses,
-            # so a stale/malformed seed is a loud startup failure instead of
-            # a 500 the first time something reads this brand.
-            profile = BrandProfile(**DEMO_BRAND_PROFILE)
-            session.add(Brand(id=DEMO_BRAND_ID, profile_json=profile.model_dump(mode="json")))
-            await session.commit()
+        await seed_all(session)
 
     yield
 
