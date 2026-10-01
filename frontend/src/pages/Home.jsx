@@ -10,7 +10,7 @@ import { Reveal } from "../components/Reveal"
 import { SignalCard } from "../components/SignalCard"
 import { TracePanel } from "../components/TracePanel"
 import { demoDirections, demoProfile, DEMO_BRAND_ID } from "../data/demoBrand"
-import { mockApi } from "../lib/mockApi"
+import { api } from "../lib/api"
 import { directionLabel } from "../lib/fonts"
 import campaignData from "../mock/campaign.json"
 import traceEvents from "../mock/trace.json"
@@ -76,11 +76,11 @@ export function Home() {
 
   useEffect(() => {
     let cancelled = false
-    mockApi
+    api
       .getBrand(DEMO_BRAND_ID)
-      .then((live) => !cancelled && setProfile(live))
+      .then((live) => !cancelled && live && setProfile(live))
       .catch(() => {})
-    mockApi
+    api
       .getIdentityDirections(DEMO_BRAND_ID)
       .then((live) => !cancelled && live.length && setDirections(live))
       .catch(() => {})
