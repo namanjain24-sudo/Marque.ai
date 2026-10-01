@@ -11,7 +11,7 @@ import { useAgent } from "../hooks/useAgent"
 export function Workspace() {
   const { brand } = useBrand()
   const location = useLocation()
-  const { run, trace, running, campaign, question } = useAgent(brand?.id)
+  const { run, trace, running, campaign, question, error } = useAgent(brand?.id)
 
   // If we arrived here from the hero chat (navigate with { state: { goal } }),
   // run that goal once the brand is loaded. Guarded so it fires a single time.
@@ -61,6 +61,12 @@ export function Workspace() {
             <div className="mx-auto max-w-md rounded-md border border-amber-200 bg-amber-50 px-5 py-4 dark:border-amber-900 dark:bg-amber-950/20">
               <p className="text-[15px] font-medium text-amber-900 dark:text-amber-300">{question}</p>
               <p className="mt-1 text-[13px] text-amber-700 dark:text-amber-500">Add a price (e.g. ₹399) to continue.</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="mx-auto max-w-md rounded-md border border-red-200 bg-red-50 px-5 py-4 dark:border-red-900 dark:bg-red-950/20">
+              <p className="text-[15px] font-medium text-red-900 dark:text-red-300">{error}</p>
             </div>
           )}
 
