@@ -1,0 +1,367 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1120" font-family="'SF Mono','JetBrains Mono',ui-monospace,Menlo,monospace">
+<!-- ============================================================
+     MARQUE.AI · SYSTEM SCHEMATIC  —  monochrome blueprint
+     colourless, high-density, static. Render target: PNG.
+     ============================================================ -->
+<defs>
+  <!-- faint engineering grid -->
+  <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+    <path d="M20 0H0V20" fill="none" stroke="#1b1b1f" stroke-width="0.5"/>
+  </pattern>
+  <pattern id="grid5" width="100" height="100" patternUnits="userSpaceOnUse">
+    <path d="M100 0H0V100" fill="none" stroke="#242428" stroke-width="0.7"/>
+  </pattern>
+  <marker id="arw" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+    <path d="M0,0 L8,3 L0,6" fill="none" stroke="#b9b9c2" stroke-width="1"/>
+  </marker>
+  <marker id="arwFlow" markerWidth="11" markerHeight="11" refX="8.5" refY="3.2" orient="auto">
+    <path d="M0,0 L8.5,3.2 L0,6.4 Z" fill="#e7e7ee"/>
+  </marker>
+  <marker id="dot" markerWidth="7" markerHeight="7" refX="3" refY="3">
+    <circle cx="3" cy="3" r="2" fill="#8a8a94"/>
+  </marker>
+  <!-- cross-hatch for the "signal/judgment" engines -->
+  <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+    <line x1="0" y1="0" x2="0" y2="6" stroke="#2e2e34" stroke-width="1"/>
+  </pattern>
+  <pattern id="hatch2" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+    <line x1="0" y1="0" x2="0" y2="8" stroke="#28282e" stroke-width="0.8"/>
+  </pattern>
+</defs>
+
+<!-- background -->
+<rect width="1600" height="1120" fill="#0c0c0e"/>
+<rect width="1600" height="1120" fill="url(#grid)"/>
+<rect width="1600" height="1120" fill="url(#grid5)"/>
+
+<!-- outer drawing border + inner border (drafting frame) -->
+<rect x="18" y="18" width="1564" height="1084" fill="none" stroke="#3a3a42" stroke-width="1.5"/>
+<rect x="30" y="30" width="1540" height="1060" fill="none" stroke="#2a2a30" stroke-width="0.8"/>
+<!-- corner crop ticks -->
+<g stroke="#5a5a64" stroke-width="1">
+  <path d="M18 54 H6 M54 18 V6"/><path d="M1582 54 H1594 M1546 18 V6"/>
+  <path d="M18 1066 H6 M54 1102 V1114"/><path d="M1582 1066 H1594 M1546 1102 V1114"/>
+</g>
+<!-- edge coordinate ruler marks -->
+<g stroke="#2e2e34" stroke-width="0.8" fill="#4a4a52" font-size="9">
+  <g>
+    <line x1="230" y1="30" x2="230" y2="40"/><text x="234" y="42">A</text>
+    <line x1="520" y1="30" x2="520" y2="40"/><text x="524" y="42">B</text>
+    <line x1="810" y1="30" x2="810" y2="40"/><text x="814" y="42">C</text>
+    <line x1="1100" y1="30" x2="1100" y2="40"/><text x="1104" y="42">D</text>
+    <line x1="1390" y1="30" x2="1390" y2="40"/><text x="1394" y="42">E</text>
+  </g>
+  <g>
+    <line x1="30" y1="250" x2="40" y2="250"/><text x="44" y="253">1</text>
+    <line x1="30" y1="450" x2="40" y2="450"/><text x="44" y="453">2</text>
+    <line x1="30" y1="650" x2="40" y2="650"/><text x="44" y="653">3</text>
+    <line x1="30" y1="850" x2="40" y2="850"/><text x="44" y="853">4</text>
+  </g>
+</g>
+
+<!-- =================== TITLE BLOCK (top) =================== -->
+<g fill="#e7e7ee">
+  <text x="52" y="78" font-size="30" font-weight="700" letter-spacing="1">MARQUE.AI — SYSTEM SCHEMATIC</text>
+  <text x="52" y="100" font-size="12" fill="#8a8a94" letter-spacing="3">CONVERSATION-FIRST BRAND OS · AGENT DATA PATH · REV 1.3</text>
+</g>
+<line x1="52" y1="112" x2="900" y2="112" stroke="#3a3a42" stroke-width="1"/>
+
+<!-- =================== REVISION / SPEC BLOCK (top-right) =================== -->
+<g font-size="10.5" fill="#9a9aa4">
+  <rect x="1130" y="52" width="420" height="92" fill="none" stroke="#3a3a42" stroke-width="1"/>
+  <line x1="1130" y1="74" x2="1550" y2="74" stroke="#2a2a30"/>
+  <line x1="1310" y1="52" x2="1310" y2="144" stroke="#2a2a30"/>
+  <text x="1138" y="68" fill="#c8c8d0" font-weight="700">DEPLOYMENT</text>
+  <text x="1318" y="68" fill="#c8c8d0" font-weight="700">INVARIANTS</text>
+  <text x="1138" y="90">host  marque.skunkworkslab.online</text>
+  <text x="1138" y="106">stack FastAPI·React·PG16·Caddy</text>
+  <text x="1138" y="122">infra Azure VM · 2GB · compose</text>
+  <text x="1138" y="138">tests 132 pass · 0 credits (CI)</text>
+  <text x="1318" y="90">· never a 503</text>
+  <text x="1318" y="106">· match in Python</text>
+  <text x="1318" y="122">· key-gated AI</text>
+  <text x="1318" y="138">· text = HTML layers</text>
+</g>
+
+<!-- =================== LANE DIVIDERS + LABELS =================== -->
+<g stroke="#26262c" stroke-width="1" stroke-dasharray="2 4">
+  <line x1="52" y1="170" x2="1550" y2="170"/>
+  <line x1="52" y1="320" x2="1550" y2="320"/>
+  <line x1="52" y1="470" x2="1550" y2="470"/>
+  <line x1="52" y1="760" x2="1550" y2="760"/>
+  <line x1="52" y1="960" x2="1550" y2="960"/>
+</g>
+<g font-size="11" fill="#6a6a74" letter-spacing="2">
+  <text x="52" y="188" fill="#b0b0ba">L1 · CLIENT — BROWSER-AS-RENDERER</text>
+  <text x="52" y="338" fill="#b0b0ba">L2 · EDGE — TLS · STATIC · PROXY</text>
+  <text x="52" y="488" fill="#b0b0ba">L3 · API — FASTAPI ROUTERS · ORCHESTRATOR</text>
+  <text x="52" y="778" fill="#b0b0ba">L4·L5 · ENGINES — RELIABILITY PATTERN · LLM ⇄ HEURISTIC</text>
+  <text x="52" y="978" fill="#b0b0ba">L6 · PERSISTENCE &amp; EXTERNAL</text>
+</g>
+
+<!-- ============================================================
+     BOX STYLE: thin hairline rects, pin ticks, mono labels
+     flow pins numbered [1]..[6] along the left spine (x≈300)
+     ============================================================ -->
+
+<!-- ==== L1 CLIENT ==== -->
+<!-- U1 Workspace (flow entry, pin 1) -->
+<g>
+  <rect x="60" y="200" width="470" height="100" fill="#121216" stroke="#9a9aa4" stroke-width="1.3"/>
+  <line x1="60" y1="224" x2="530" y2="224" stroke="#2e2e34"/>
+  <text x="72" y="218" font-size="13" fill="#e7e7ee" font-weight="700">U1 · WORKSPACE / 3-COL CHAT</text>
+  <text x="72" y="244" font-size="10.5" fill="#9a9aa4">AskBar → goal : str(1..500)</text>
+  <text x="72" y="262" font-size="10.5" fill="#9a9aa4">"Launch truffle burger @ ₹399 this weekend"</text>
+  <text x="72" y="282" font-size="9.5" fill="#6a6a74">chat · results-pane · TracePanel</text>
+  <!-- pin label -->
+  <circle cx="60" cy="250" r="11" fill="#0c0c0e" stroke="#e7e7ee" stroke-width="1.3"/>
+  <text x="60" y="254" font-size="12" fill="#e7e7ee" font-weight="700" text-anchor="middle">1</text>
+</g>
+<!-- U2 AssetPreview -->
+<g>
+  <rect x="560" y="200" width="300" height="100" fill="#101014" stroke="#6e6e78" stroke-width="1"/>
+  <line x1="560" y1="224" x2="860" y2="224" stroke="#2a2a30"/>
+  <text x="572" y="218" font-size="12" fill="#cfcfd6" font-weight="700">U2 · AssetPreview (CSS)</text>
+  <text x="572" y="244" font-size="10" fill="#8a8a94">palette+fonts ← useBrand()</text>
+  <text x="572" y="262" font-size="10" fill="#8a8a94">4 knob-driven layout variants</text>
+  <text x="572" y="282" font-size="9.5" fill="#6a6a74">text drawn as HTML, never by image model</text>
+</g>
+<!-- U3 rasterize -->
+<g>
+  <rect x="890" y="200" width="300" height="100" fill="#101014" stroke="#6e6e78" stroke-width="1"/>
+  <line x1="890" y1="224" x2="1190" y2="224" stroke="#2a2a30"/>
+  <text x="902" y="218" font-size="12" fill="#cfcfd6" font-weight="700">U3 · rasterize.js</text>
+  <text x="902" y="244" font-size="10" fill="#8a8a94">AssetPreview DOM → PNG blob</text>
+  <text x="902" y="262" font-size="10" fill="#8a8a94">multipart → signal-check</text>
+  <text x="902" y="282" font-size="9.5" fill="#6a6a74">rasterize for scoring only, not export</text>
+</g>
+<!-- U4 read surfaces -->
+<g>
+  <rect x="1220" y="200" width="300" height="100" fill="#101014" stroke="#6e6e78" stroke-width="1"/>
+  <line x1="1220" y1="224" x2="1520" y2="224" stroke="#2a2a30"/>
+  <text x="1232" y="218" font-size="12" fill="#cfcfd6" font-weight="700">U4 · LIBRARY / CAMPAIGNS / BRAND</text>
+  <text x="1232" y="244" font-size="10" fill="#8a8a94">where every AI result lands</text>
+  <text x="1232" y="262" font-size="10" fill="#8a8a94">signal badges · source=rendered|upload</text>
+  <text x="1232" y="282" font-size="9.5" fill="#6a6a74">read/filter surfaces · no gen here</text>
+</g>
+
+<!-- ==== L2 EDGE ==== -->
+<g>
+  <rect x="60" y="350" width="330" height="88" fill="#121216" stroke="#9a9aa4" stroke-width="1.3"/>
+  <line x1="60" y1="374" x2="390" y2="374" stroke="#2e2e34"/>
+  <text x="72" y="368" font-size="13" fill="#e7e7ee" font-weight="700">N1 · CADDY (reverse proxy)</text>
+  <text x="72" y="396" font-size="10.5" fill="#9a9aa4">auto Let's Encrypt · TLS terminate</text>
+  <text x="72" y="414" font-size="10.5" fill="#9a9aa4">:80 → :443 (308) · certs in volume</text>
+  <text x="72" y="430" font-size="9.5" fill="#6a6a74">only service exposed to internet</text>
+  <circle cx="60" cy="400" r="11" fill="#0c0c0e" stroke="#e7e7ee" stroke-width="1.3"/>
+  <text x="60" y="404" font-size="12" fill="#e7e7ee" font-weight="700" text-anchor="middle">2</text>
+</g>
+<g>
+  <rect x="420" y="350" width="330" height="88" fill="#101014" stroke="#6e6e78" stroke-width="1"/>
+  <line x1="420" y1="374" x2="750" y2="374" stroke="#2a2a30"/>
+  <text x="432" y="368" font-size="12" fill="#cfcfd6" font-weight="700">N2 · nginx (frontend container)</text>
+  <text x="432" y="396" font-size="10" fill="#8a8a94">serve SPA (dist)</text>
+  <text x="432" y="414" font-size="10" fill="#8a8a94">proxy /api/* · /media/* → backend:8000</text>
+  <text x="432" y="430" font-size="9.5" fill="#6a6a74">internal only · no host port</text>
+</g>
+<!-- infra note block -->
+<g font-size="10" fill="#7a7a84">
+  <rect x="790" y="350" width="400" height="88" fill="none" stroke="#2e2e34" stroke-dasharray="3 3"/>
+  <text x="802" y="370" fill="#a0a0aa" font-weight="700">DOCKER COMPOSE (prod)</text>
+  <text x="802" y="390">caddy · frontend(nginx) · backend(uvicorn)</text>
+  <text x="802" y="407">db(postgres16) · volumes: pgdata·media·caddy</text>
+  <text x="802" y="424">DB + :8000 not published to host</text>
+</g>
+
+<!-- ==== L3 API ==== -->
+<g>
+  <rect x="60" y="500" width="470" height="120" fill="#121216" stroke="#9a9aa4" stroke-width="1.3"/>
+  <line x1="60" y1="524" x2="530" y2="524" stroke="#2e2e34"/>
+  <text x="72" y="518" font-size="13" fill="#e7e7ee" font-weight="700">R0 · POST /v1/brands/{id}/agent/run</text>
+  <text x="72" y="546" font-size="10.5" fill="#9a9aa4">classify_intent(goal)  [keyword → LLM, temp 0]</text>
+  <text x="72" y="564" font-size="10.5" fill="#9a9aa4">dispatch → generate · read · memory · evaluate</text>
+  <text x="72" y="584" font-size="10.5" fill="#9a9aa4">inject Brand Memory block into prompt</text>
+  <text x="72" y="604" font-size="9.5" fill="#6a6a74">do/dont enforced in Python · confirmation-gated writes</text>
+  <circle cx="60" cy="560" r="11" fill="#0c0c0e" stroke="#e7e7ee" stroke-width="1.3"/>
+  <text x="60" y="564" font-size="12" fill="#e7e7ee" font-weight="700" text-anchor="middle">3</text>
+</g>
+<!-- router grid -->
+<g font-size="10.5">
+  <rect x="560" y="500" width="300" height="56" fill="#101014" stroke="#6e6e78"/>
+  <text x="572" y="520" fill="#cfcfd6" font-weight="700">R1 · brands / memory</text>
+  <text x="572" y="540" fill="#8a8a94">PATCH /memory · POST /rules · identity/apply · v++</text>
+
+  <rect x="560" y="564" width="300" height="56" fill="#101014" stroke="#6e6e78"/>
+  <text x="572" y="584" fill="#cfcfd6" font-weight="700">R2 · signal-check</text>
+  <text x="572" y="604" fill="#8a8a94">multipart(image,round) · 422/502 typed · never 503</text>
+
+  <rect x="890" y="500" width="300" height="56" fill="#101014" stroke="#6e6e78"/>
+  <text x="902" y="520" fill="#cfcfd6" font-weight="700">R3 · campaigns / assets</text>
+  <text x="902" y="540" fill="#8a8a94">GET lists · GET /campaigns/{id} · library · audits</text>
+
+  <rect x="890" y="564" width="300" height="56" fill="#0f0f13" stroke="#6e6e78"/>
+  <text x="902" y="584" fill="#cfcfd6" font-weight="700">M0 · Brand Memory · BrandProfile vN</text>
+  <text x="902" y="604" fill="#8a8a94">positioning·do·dont·voice·palette·fonts (single src)</text>
+</g>
+
+<!-- ==== L4/L5 ENGINES ==== -->
+<!-- E1 asset_gen (flow pin 4) -->
+<g>
+  <rect x="60" y="500" width="0" height="0"/>
+</g>
+<g>
+  <rect x="60" y="800" width="270" height="120" fill="#121216" stroke="#9a9aa4" stroke-width="1.3"/>
+  <line x1="60" y1="824" x2="330" y2="824" stroke="#2e2e34"/>
+  <text x="72" y="818" font-size="12.5" fill="#e7e7ee" font-weight="700">E1 · asset_gen · F5</text>
+  <text x="72" y="846" font-size="10" fill="#9a9aa4">slots{headline,sub,price,cta,logo}</text>
+  <text x="72" y="864" font-size="10" fill="#9a9aa4">6 knobs → 4 assets (poster/post/story/wa)</text>
+  <text x="72" y="882" font-size="10" fill="#9a9aa4">dont-guard · Facts Rule (price regex)</text>
+  <text x="72" y="902" font-size="9.5" fill="#6a6a74">LLM copy ⇄ regex headline fallback</text>
+  <circle cx="60" cy="860" r="11" fill="#0c0c0e" stroke="#e7e7ee" stroke-width="1.3"/>
+  <text x="60" y="864" font-size="12" fill="#e7e7ee" font-weight="700" text-anchor="middle">4</text>
+</g>
+<!-- E2 vision (hatched · judgment · flow pin 5) -->
+<g>
+  <rect x="345" y="800" width="270" height="120" fill="#121216" stroke="#9a9aa4" stroke-width="1.3"/>
+  <rect x="345" y="800" width="270" height="120" fill="url(#hatch)"/>
+  <line x1="345" y1="824" x2="615" y2="824" stroke="#2e2e34"/>
+  <text x="357" y="818" font-size="12.5" fill="#e7e7ee" font-weight="700">E2 · vision · F4  ★crown</text>
+  <text x="357" y="846" font-size="10" fill="#9a9aa4">4 axes: premium·modern·playful·niche</text>
+  <text x="357" y="864" font-size="10" fill="#9a9aa4">detected vs target → gaps (signed)</text>
+  <text x="357" y="882" font-size="10" fill="#9a9aa4">match = 100 − avg|gap|  [Python]</text>
+  <text x="357" y="902" font-size="9.5" fill="#6a6a74">LLM ⇄ match=50 heuristic · verdict pass/fix</text>
+  <circle cx="345" cy="860" r="11" fill="#0c0c0e" stroke="#e7e7ee" stroke-width="1.3"/>
+  <text x="345" y="864" font-size="12" fill="#e7e7ee" font-weight="700" text-anchor="middle">5</text>
+</g>
+<!-- E3 brand_dna -->
+<g>
+  <rect x="630" y="800" width="250" height="120" fill="#101014" stroke="#6e6e78"/>
+  <rect x="630" y="800" width="250" height="120" fill="url(#hatch2)"/>
+  <line x1="630" y1="824" x2="880" y2="824" stroke="#2a2a30"/>
+  <text x="642" y="818" font-size="12" fill="#cfcfd6" font-weight="700">E3 · brand_dna · F1</text>
+  <text x="642" y="846" font-size="10" fill="#8a8a94">positioning·do/dont·tone·meaning</text>
+  <text x="642" y="864" font-size="10" fill="#8a8a94">→ BrandDNAProposal</text>
+  <text x="642" y="882" font-size="10" fill="#8a8a94">shared 0/25/50/75/100 rubric</text>
+  <text x="642" y="902" font-size="9.5" fill="#6a6a74">LLM ⇄ lookup tables</text>
+</g>
+<!-- E4 identity -->
+<g>
+  <rect x="895" y="800" width="230" height="120" fill="#101014" stroke="#6e6e78"/>
+  <line x1="895" y1="824" x2="1125" y2="824" stroke="#2a2a30"/>
+  <text x="907" y="818" font-size="12" fill="#cfcfd6" font-weight="700">E5 · identity · F3</text>
+  <text x="907" y="846" font-size="10" fill="#8a8a94">5 curated templates</text>
+  <text x="907" y="864" font-size="10" fill="#8a8a94">nearest-2 cosine (positioning)</text>
+  <text x="907" y="882" font-size="10" fill="#8a8a94">→ palette + fonts + meaning</text>
+  <text x="907" y="902" font-size="9.5" fill="#6a6a74">deterministic · offline · 0 credits</text>
+</g>
+<!-- E5 audit -->
+<g>
+  <rect x="1140" y="800" width="230" height="120" fill="#101014" stroke="#6e6e78"/>
+  <rect x="1140" y="800" width="230" height="120" fill="url(#hatch2)"/>
+  <line x1="1140" y1="824" x2="1370" y2="824" stroke="#2a2a30"/>
+  <text x="1152" y="818" font-size="12" fill="#cfcfd6" font-weight="700">E6 · audit · F10</text>
+  <text x="1152" y="846" font-size="10" fill="#8a8a94">2–5 img consistency</text>
+  <text x="1152" y="864" font-size="10" fill="#8a8a94">VisionAuditResponse ·</text>
+  <text x="1152" y="882" font-size="10" fill="#8a8a94">consistency_score [Python]</text>
+  <text x="1152" y="902" font-size="9.5" fill="#6a6a74">LLM ⇄ heuristic score</text>
+</g>
+
+<!-- reliability seam strip -->
+<g>
+  <rect x="60" y="930" width="1310" height="20" fill="none" stroke="#4a4a52" stroke-dasharray="1 2"/>
+  <text x="68" y="944" font-size="9.5" fill="#8a8a94">RELIABILITY SEAM (all AI engines):  Pydantic schema + response_format:json_object  →  parse/validate  →  retry×1  →  typed error  →  heuristic fallback   ·   temp 0 · LLM judgment-only, never arithmetic · auto-switch OPENROUTER_API_KEY · mocked tests 0-credit</text>
+</g>
+
+<!-- ==== L6 PERSISTENCE ==== -->
+<g>
+  <rect x="60" y="990" width="470" height="90" fill="#121216" stroke="#9a9aa4" stroke-width="1.3"/>
+  <line x1="60" y1="1014" x2="530" y2="1014" stroke="#2e2e34"/>
+  <text x="72" y="1008" font-size="13" fill="#e7e7ee" font-weight="700">DB · POSTGRES 16</text>
+  <text x="72" y="1034" font-size="10.5" fill="#9a9aa4">brands·campaigns·assets·products·audits·runs</text>
+  <text x="72" y="1052" font-size="10.5" fill="#9a9aa4">persist campaign+assets+run · seeded idempotent@boot</text>
+  <text x="72" y="1070" font-size="9.5" fill="#6a6a74">result surfaces back in U4 (Library/Campaigns)</text>
+  <circle cx="60" cy="1035" r="11" fill="#0c0c0e" stroke="#e7e7ee" stroke-width="1.3"/>
+  <text x="60" y="1039" font-size="12" fill="#e7e7ee" font-weight="700" text-anchor="middle">6</text>
+</g>
+<g>
+  <rect x="560" y="990" width="300" height="90" fill="#101014" stroke="#6e6e78"/>
+  <line x1="560" y1="1014" x2="860" y2="1014" stroke="#2a2a30"/>
+  <text x="572" y="1008" font-size="12" fill="#cfcfd6" font-weight="700">X1 · OpenRouter (external)</text>
+  <text x="572" y="1034" font-size="10" fill="#8a8a94">vision + text models</text>
+  <text x="572" y="1052" font-size="10" fill="#8a8a94">key-gated · engines call out</text>
+  <text x="572" y="1070" font-size="9.5" fill="#6a6a74">absent ⇒ heuristic path, zero spend</text>
+</g>
+<g>
+  <rect x="890" y="990" width="300" height="90" fill="#101014" stroke="#6e6e78"/>
+  <line x1="890" y1="1014" x2="1190" y2="1014" stroke="#2a2a30"/>
+  <text x="902" y="1008" font-size="12" fill="#cfcfd6" font-weight="700">V1 · media volume</text>
+  <text x="902" y="1034" font-size="10" fill="#8a8a94">uploaded PNG / rendered exports</text>
+  <text x="902" y="1052" font-size="10" fill="#8a8a94">/media static mount (StaticFiles)</text>
+  <text x="902" y="1070" font-size="9.5" fill="#6a6a74">bind volume survives redeploy</text>
+</g>
+
+<!-- ============================================================
+     CONNECTORS  —  thin orthogonal bus lines, all right-angle
+     FLOW BUS (primary path 1→6): heavier white line, left spine
+     ============================================================ -->
+<!-- primary flow spine at x=24? use x=300 vertical bus with tees -->
+<g fill="none" stroke="#e7e7ee" stroke-width="1.8">
+  <path d="M300,300 L300,350" marker-end="url(#arwFlow)"/>
+  <path d="M225,438 L225,500" marker-end="url(#arwFlow)"/>
+  <path d="M300,620 L300,800" marker-end="url(#arwFlow)"/>
+  <path d="M200,920 L200,990" marker-end="url(#arwFlow)"/>
+</g>
+<!-- flow turn labels -->
+<g font-size="9" fill="#b9b9c2">
+  <text x="308" y="326">① goal in</text>
+  <text x="233" y="470">② TLS·proxy</text>
+  <text x="308" y="716">③ intent→gen</text>
+  <text x="208" y="962">⑥ persist</text>
+</g>
+
+<!-- secondary buses (thin grey, orthogonal) -->
+<g fill="none" stroke="#5a5a64" stroke-width="1" marker-end="url(#arw)">
+  <!-- R0 → engines (gen uses asset_gen) -->
+  <path d="M295,620 L295,640 L160,640 L160,800"/>
+  <!-- R2 signal-check → vision E2 -->
+  <path d="M710,620 L710,700 L480,700 L480,800"/>
+  <!-- rasterize U3 → R2 signal-check -->
+  <path d="M1000,300 L1000,480 L860,536 L862,536"/>
+  <!-- identity/dna consulted by R1 memory -->
+  <path d="M740,620 L740,760 L760,760 L760,800"/>
+  <path d="M1010,620 L1010,760 L1010,800"/>
+  <!-- audit via R2 -->
+  <path d="M840,620 L840,760 L1255,760 L1255,800"/>
+  <!-- engines → OpenRouter (key-gated) : far right vertical gutter -->
+  <path d="M1255,920 L1255,960 L1430,960 L1430,1035 L1190,1035" stroke-dasharray="4 4"/>
+  <!-- engines → DB persist -->
+  <path d="M200,920 L200,975 L120,975 L120,990" opacity="0"/>
+  <!-- DB → U4 library (return, right gutter) -->
+  <path d="M530,1035 L1470,1035 L1470,250 L1520,250" stroke-dasharray="5 4" stroke="#7a7a84"/>
+</g>
+
+<!-- bus junction dots -->
+<g fill="#8a8a94">
+  <circle cx="295" cy="640" r="2.5"/>
+  <circle cx="710" cy="700" r="2.5"/>
+  <circle cx="1000" cy="480" r="2.5"/>
+  <circle cx="1470" cy="1035" r="2.5"/>
+</g>
+
+<!-- connector annotations -->
+<g font-size="8.5" fill="#7a7a84">
+  <text x="165" y="636">gen</text>
+  <text x="485" y="696">rasterized PNG</text>
+  <text x="1005" y="476">DOM→PNG</text>
+  <text x="1300" y="956" fill="#6a6a74">key-gated LLM</text>
+  <text x="1478" y="640" transform="rotate(90 1478 640)" fill="#6a6a74">result → Library (U4)</text>
+  <text x="745" y="756">consulted by memory</text>
+</g>
+
+<!-- bottom caption / legend row -->
+<line x1="52" y1="1092" x2="1548" y2="1092" stroke="#2a2a30"/>
+<g font-size="9.5" fill="#7a7a84">
+  <text x="52" y="1086">LEGEND:  ▇ heavy = primary agent path (1→6)   ·   ─ thin = component bus   ·   ┄ dashed = key-gated / return   ·   ▨ hatched = AI judgment engine (LLM ⇄ heuristic)</text>
+  <text x="1300" y="1086" fill="#5a5a64">MARQUE.AI · DWG 01 · A0</text>
+</g>
+</svg>

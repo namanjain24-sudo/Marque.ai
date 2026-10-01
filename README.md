@@ -2,6 +2,18 @@
 
 React + FastAPI + Postgres, fully dockerized.
 
+## Architecture
+
+System schematic and the agent data path (AskBar goal → `classify_intent` →
+inject Brand Memory → `generate_campaign` → Signal Check → persist). Numbered
+pins `1`–`6` trace the request down the left spine through the layers
+(client → edge → API → engines → persistence).
+
+![Marque.ai system architecture](docs/architecture.png)
+
+Source: [`docs/architecture.svg`](docs/architecture.svg) (editable vector) ·
+rendered to [`docs/architecture.png`](docs/architecture.png).
+
 ## Structure
 
 - `frontend/` — Vite + React, served via nginx in production (also proxies `/api/*` to the backend)
