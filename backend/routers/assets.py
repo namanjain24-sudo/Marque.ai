@@ -12,9 +12,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import get_session
+from imagegen import (
+    ImageGenError,
+    ImageGenNotConfigured,
+    brandify_image,
+    image_gen_enabled,
+)
 from models import Asset, Brand, new_id
 from schemas import AssetTypeT, BrandProfile, FixKnobs, LibraryAsset, SignalGaps, SignalResult
-from uploads import BadUploadError, delete_image, save_image, validate_upload
+from uploads import BadUploadError, MEDIA_URL_PREFIX, delete_image, save_image, validate_upload
 from vision import (
     InvalidImageError,
     VisionCheckError,
@@ -124,6 +130,89 @@ async def save_asset(
     session.add(asset)
     await session.commit()
     # DB row is durable — now safe to write the file.
+    save_image(jpeg_bytes, asset_id)
+    return _to_library_asset(asset)
+
+
+def _heuristic_signal(profile: BrandProfile) -> SignalResult:
+    """Neutral score used when no AI key is configured — keeps save flows working
+    offline instead of 503ing. Mirrors the signal-check route's fallback."""
+    return SignalResult(
+        round=1,
+        detected=profile.positioning,
+        target=profile.positioning,
+        gaps=SignalGaps(premium=0, modern=0, playful=0, niche=0),
+        match=50,
+        verdict="needs_fix",
+        issue="heuristic fallback — AI key not configured",
+        evidence=["Signal Check requires OPENROUTER_API_KEY to score accurately"],
+        fix=FixKnobs(),
+    )
+
+
+@router.post("/brandify", response_model=LibraryAsset, status_code=201)
+async def brandify_asset(
+    brand_id: str,
+    image: UploadFile = File(...),
+    type: str = Form(default="other"),
+    label: str | None = Form(default=None),
+    session: AsyncSession = Depends(get_session),
+):
+    """Brand-ify an uploaded image: send it to the image-edit model restyled to
+    this brand's palette/photo_style/positioning, score the result with Signal
+    Check, store it, and record an Asset row (source='brandified'). The result
+    is a brand-consistent version of what the owner uploaded."""
+    brand = await _get_brand_or_404(brand_id, session)
+    asset_type = type if type in VALID_TYPES else "other"
+
+    data = await image.read()
+    try:
+        validate_upload(data)
+    except BadUploadError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if not image_gen_enabled():
+        # Honest 503: this feature genuinely needs the paid image model + opt-in.
+        raise HTTPException(
+            status_code=503,
+            detail="Brand-ify needs image generation enabled (OPENROUTER_API_KEY + MARQUE_HERO_IMAGES).",
+        )
+
+    profile = BrandProfile(**brand.profile_json)
+
+    # 1) Restyle the uploaded image to the brand.
+    try:
+        branded_raw = await brandify_image(data, profile)
+    except ImageGenNotConfigured as exc:
+        raise HTTPException(status_code=503, detail="Brand-ify isn't configured on this deployment") from exc
+    except ImageGenError as exc:
+        raise HTTPException(status_code=502, detail=f"Brand-ify failed: {exc}") from exc
+
+    # 2) Normalise to a stored JPEG and score the brand-ified result.
+    try:
+        jpeg_bytes, _mime = prepare_image(branded_raw)
+    except InvalidImageError as exc:
+        raise HTTPException(status_code=502, detail=f"Brand-ify produced an unreadable image: {exc}") from exc
+
+    try:
+        result = await check_signals(profile, jpeg_bytes, round_num=1, _skip_prepare=True)
+    except VisionNotConfiguredError:
+        result = _heuristic_signal(profile)
+    except VisionCheckError as exc:
+        raise HTTPException(status_code=502, detail=f"Signal Check failed: {exc}") from exc
+
+    asset_id = new_id("a")
+    png_url = f"{MEDIA_URL_PREFIX}/{asset_id}.jpg"
+    asset = Asset(
+        id=asset_id,
+        brand_id=brand_id,
+        type=asset_type,
+        png_url=png_url,
+        signal_json=result.model_dump(mode="json"),
+        layout_json={"source": "brandified", "label": label or "Brand-ified"},
+    )
+    session.add(asset)
+    await session.commit()
     save_image(jpeg_bytes, asset_id)
     return _to_library_asset(asset)
 
