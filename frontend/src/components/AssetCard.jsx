@@ -25,8 +25,8 @@ export function AssetCard({ asset, showScore = true }) {
           type={type}
           slots={slots}
           knobs={knobs}
-          palette={brand.palette}
-          fonts={brand.fonts}
+          palette={brand?.palette}
+          fonts={brand?.fonts}
           pngUrl={png_url}
         />
       </div>
