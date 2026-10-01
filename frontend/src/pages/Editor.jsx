@@ -51,8 +51,6 @@ export function Editor() {
   useEffect(() => {
     if (!brand?.id || !assetId) return
     let cancelled = false
-    setAsset(null)
-    setLoadError(null)
     api
       .getAsset(brand.id, assetId)
       .then((data) => { if (!cancelled) setAsset(data) })

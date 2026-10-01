@@ -28,25 +28,30 @@ export function Library() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
-
-  const load = useCallback(() => {
-    if (!brand?.id) return
+  // Bumped by the Retry button to re-trigger the load effect. Resetting the
+  // loading/error state happens here (an event handler), not inside the effect,
+  // so the effect body never calls setState synchronously.
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = useCallback(() => {
     setLoading(true)
     setLoadError(null)
-    api
-      .listAssets(brand.id)
-      .then((list) => setAssets(list ?? []))
-      .catch((err) => setLoadError(err.message ?? "Could not load assets."))
-      .finally(() => setLoading(false))
-    api
-      .listAudits(brand.id)
-      .then((audits) => setAlerts(audits?.[0]?.report?.alerts ?? []))
-      .catch(() => setAlerts([]))
-  }, [brand?.id])
+    setReloadKey((k) => k + 1)
+  }, [])
 
   useEffect(() => {
-    load()
-  }, [load])
+    if (!brand?.id) return
+    let cancelled = false
+    api
+      .listAssets(brand.id)
+      .then((list) => { if (!cancelled) setAssets(list ?? []) })
+      .catch((err) => { if (!cancelled) setLoadError(err.message ?? "Could not load assets.") })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    api
+      .listAudits(brand.id)
+      .then((audits) => { if (!cancelled) setAlerts(audits?.[0]?.report?.alerts ?? []) })
+      .catch(() => { if (!cancelled) setAlerts([]) })
+    return () => { cancelled = true }
+  }, [brand?.id, reloadKey])
 
   async function removeAsset(assetId) {
     if (!brand?.id || deletingId) return
@@ -137,7 +142,7 @@ export function Library() {
             <span>{loadError}</span>
             <button
               type="button"
-              onClick={load}
+              onClick={reload}
               className="rounded-md border border-amber-300 px-3 py-1 font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:text-amber-300"
             >
               Retry
