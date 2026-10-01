@@ -80,32 +80,45 @@ export function CampaignDetail() {
           <div className="border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
             <p className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100">Asset checklist</p>
           </div>
-          {(campaign.assets ?? []).map((asset, i) => (
-            <div
-              key={asset.id}
-              className={`flex items-center justify-between gap-4 px-5 py-3 ${
-                i > 0 ? "border-t border-zinc-100 dark:border-zinc-900" : ""
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-sm ${
-                    asset.signal_verdict === "pass"
-                      ? "bg-emerald-700 text-white"
-                      : "border border-zinc-300 dark:border-zinc-700"
-                  }`}
-                >
-                  {asset.signal_verdict === "pass" && <Check size={11} weight="bold" />}
-                </span>
-                <span className="text-[14px] text-zinc-700 dark:text-zinc-300">{asset.label}</span>
+          {(campaign.assets ?? []).map((asset, i) => {
+            const checked = asset.signal_verdict === "pass"
+            const needsFix = asset.signal_verdict === "needs_fix"
+            return (
+              <div
+                key={asset.id}
+                className={`flex items-center justify-between gap-4 px-5 py-3 ${
+                  i > 0 ? "border-t border-zinc-100 dark:border-zinc-900" : ""
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-sm ${
+                      checked
+                        ? "bg-emerald-700 text-white"
+                        : needsFix
+                          ? "border border-amber-400 text-amber-500 dark:border-amber-600"
+                          : "border border-zinc-300 dark:border-zinc-700"
+                    }`}
+                  >
+                    {checked && <Check size={11} weight="bold" />}
+                    {needsFix && <span className="text-[11px] leading-none">!</span>}
+                  </span>
+                  <span className="text-[14px] text-zinc-700 dark:text-zinc-300">{asset.label}</span>
+                </div>
+                {asset.signal_match == null ? (
+                  <span className="text-[11px] text-zinc-400 dark:text-zinc-600">Signal not checked</span>
+                ) : (
+                  <span
+                    className={`font-mono text-[12px] ${
+                      checked ? "text-emerald-700 dark:text-emerald-500" : "text-amber-600 dark:text-amber-400"
+                    }`}
+                  >
+                    {asset.signal_match} · {checked ? "pass" : "needs fix"}
+                  </span>
+                )}
               </div>
-              {asset.signal_match == null ? (
-                <span className="text-zinc-400 text-[11px]">Signal not checked</span>
-              ) : (
-                <span className="font-mono text-[12px] text-zinc-400 dark:text-zinc-600">{asset.signal_match}</span>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       </Container>
 

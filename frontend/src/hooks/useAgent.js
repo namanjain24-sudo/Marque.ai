@@ -21,6 +21,10 @@ const TRACE_STEPS = [
   'Campaign ready for approval',
 ]
 
+// Words that signal the user wants a new asset/campaign (vs. a read question
+// like "what's our palette?"). The price nudge only makes sense for these.
+const GENERATION_INTENT = /\b(poster|post|story|whatsapp|campaign|launch|create|make|generate|run|ad|offer|promo|sale|combo|deal)\b/i
+
 export function useAgent(brandId) {
   const [trace, setTrace] = useState([])
   const [running, setRunning] = useState(false)
@@ -36,8 +40,10 @@ export function useAgent(brandId) {
       setQuestion(null)
       setError(null)
 
-      // Price nudge (same as the mock): no ₹ / digits -> ask for a price.
-      if (!/[₹\d]/.test(message)) {
+      // Price nudge: only for generation-intent goals ("make a poster…") that
+      // have no price. A read-style question ("what's our palette?") must NOT be
+      // blocked for lacking a number.
+      if (GENERATION_INTENT.test(message) && !/[₹\d]/.test(message)) {
         setQuestion('What price should I put on it?')
         return null
       }

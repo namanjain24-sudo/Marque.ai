@@ -53,6 +53,10 @@ export function SignalCard({ result }) {
 
   const data = fixed && result.fix_result ? result.fix_result : result
   const pass = data.verdict === 'pass'
+  // The backend returns this exact marker when no AI key is configured: show it
+  // as an explicit amber banner so the score reads as a heuristic placeholder,
+  // not a real vision result (UX invariant: silence broken work loudly).
+  const heuristic = typeof data.issue === 'string' && data.issue.includes('heuristic fallback')
 
   async function handleAutoFix() {
     if (fixing || fixed || !result.fix_result) return
@@ -64,6 +68,13 @@ export function SignalCard({ result }) {
 
   return (
     <div className="border border-zinc-200 dark:border-zinc-800">
+      {/* Heuristic-fallback banner — shown when no AI key is configured */}
+      {heuristic && (
+        <div className="border-b border-amber-200 bg-amber-50 px-5 py-1.5 text-[12px] text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-400">
+          Signal Check: heuristic fallback — AI key not configured
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between gap-4 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
         <div className="flex items-baseline gap-2">
