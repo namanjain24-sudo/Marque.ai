@@ -42,8 +42,8 @@ class Palette(BaseModel):
 
 
 class Fonts(BaseModel):
-    heading: str
-    body: str
+    heading: NameStr  # font name, non-empty, max 200 chars
+    body: NameStr
 
 
 class Logo(BaseModel):
@@ -52,8 +52,8 @@ class Logo(BaseModel):
 
 
 class Voice(BaseModel):
-    language: str = "Hinglish"
-    tone: str = ""
+    language: ShortStr = "Hinglish"  # locale/language name, max 300 chars
+    tone: ShortStr = ""              # free-form tone description, max 300 chars
 
 
 def _validate_meaning(value: dict[str, str] | None) -> dict[str, str] | None:
