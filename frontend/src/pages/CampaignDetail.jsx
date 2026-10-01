@@ -99,7 +99,11 @@ export function CampaignDetail() {
                 </span>
                 <span className="text-[14px] text-zinc-700 dark:text-zinc-300">{asset.label}</span>
               </div>
-              <span className="font-mono text-[12px] text-zinc-400 dark:text-zinc-600">{asset.signal_match}</span>
+              {asset.signal_match == null ? (
+                <span className="text-zinc-400 text-[11px]">Signal not checked</span>
+              ) : (
+                <span className="font-mono text-[12px] text-zinc-400 dark:text-zinc-600">{asset.signal_match}</span>
+              )}
             </div>
           ))}
         </div>

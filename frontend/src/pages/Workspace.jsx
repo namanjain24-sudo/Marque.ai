@@ -11,7 +11,7 @@ import { useAgent } from "../hooks/useAgent"
 export function Workspace() {
   const { brand } = useBrand()
   const location = useLocation()
-  const { run, trace, running, campaign, question, error } = useAgent(brand?.id)
+  const { run, trace, running, campaign, question, error, messages } = useAgent(brand?.id)
 
   // If we arrived here from the hero chat (navigate with { state: { goal } }),
   // run that goal once the brand is loaded. Guarded so it fires a single time.
@@ -35,6 +35,27 @@ export function Workspace() {
 
             {/* Chat history */}
             <div className="mt-6 space-y-3">
+              {/* Message bubbles — the conversation turns so far */}
+              {messages.length > 0 && (
+                <div className="space-y-2">
+                  {messages.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <p
+                        className={`max-w-[85%] rounded-sm px-3 py-2 text-[13px] leading-relaxed ${
+                          msg.role === 'user'
+                            ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
+                            : 'text-zinc-600 dark:text-zinc-400'
+                        }`}
+                      >
+                        {msg.content}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
               {/* Question / error feedback — shown in this panel on mobile (centre panel is lg-only) */}
               {question && (
                 <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-3 lg:hidden dark:border-amber-900 dark:bg-amber-950/20">

@@ -5,6 +5,8 @@
 // streamed/SSE trace from a true orchestrator (F7) is a later item. The price
 // nudge is kept: if the goal has no price, ask for one before running, matching
 // the product's "it asks a clarifying question" behaviour.
+//
+// messages: conversation history of shape { role: "user"|"ai", content: string }
 import { useCallback, useState } from 'react'
 import { api } from '../lib/api'
 
@@ -25,6 +27,7 @@ export function useAgent(brandId) {
   const [campaign, setCampaign] = useState(null)
   const [question, setQuestion] = useState(null)
   const [error, setError] = useState(null)
+  const [messages, setMessages] = useState([])
 
   const run = useCallback(
     async (message) => {
@@ -43,11 +46,22 @@ export function useAgent(brandId) {
         return null
       }
 
+      // Push user message immediately
+      setMessages((prev) => [...prev, { role: 'user', content: message }])
+
       setRunning(true)
       try {
         const result = await api.agentRun(brandId, message)
         setCampaign(result)
         setTrace(TRACE_STEPS)
+        // Push ai response
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'ai',
+            content: `Generated campaign "${result.name}" — ${result.assets?.length ?? 0} assets`,
+          },
+        ])
         return result
       } catch (err) {
         setError(err.message || 'Could not generate the campaign.')
@@ -59,5 +73,5 @@ export function useAgent(brandId) {
     [brandId],
   )
 
-  return { run, trace, running, campaign, question, error }
+  return { run, trace, running, campaign, question, error, messages }
 }
