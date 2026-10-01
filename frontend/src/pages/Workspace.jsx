@@ -1,11 +1,28 @@
 // pages/Workspace.jsx — 3-column: chat history, campaign results, trace panel
+import { useEffect, useRef } from "react"
+import { useLocation } from "react-router-dom"
+
 import { AskBar } from "../components/AskBar"
 import { AssetCard } from "../components/AssetCard"
 import { TracePanel } from "../components/TracePanel"
-import { useMockAgent } from "../hooks/useMockAgent"
+import { useBrand } from "../context/BrandContext"
+import { useAgent } from "../hooks/useAgent"
 
 export function Workspace() {
-  const { run, trace, running, campaign, question } = useMockAgent()
+  const { brand } = useBrand()
+  const location = useLocation()
+  const { run, trace, running, campaign, question } = useAgent(brand?.id)
+
+  // If we arrived here from the hero chat (navigate with { state: { goal } }),
+  // run that goal once the brand is loaded. Guarded so it fires a single time.
+  const autoRan = useRef(false)
+  useEffect(() => {
+    const goal = location.state?.goal
+    if (goal && brand?.id && !autoRan.current) {
+      autoRan.current = true
+      run(goal)
+    }
+  }, [location.state, brand?.id, run])
 
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden">

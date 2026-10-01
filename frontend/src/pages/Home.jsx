@@ -1,7 +1,9 @@
 import { Barbell, Check, Coffee, Scissors, TShirt, X } from "@phosphor-icons/react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 
+import { AskBar } from "../components/AskBar"
 import { AssetPreview } from "../components/AssetPreview"
 import { BrandIdentityCard } from "../components/BrandIdentityCard"
 import { Button } from "../components/Button"
@@ -10,7 +12,7 @@ import { Reveal } from "../components/Reveal"
 import { SignalCard } from "../components/SignalCard"
 import { TracePanel } from "../components/TracePanel"
 import { demoDirections, demoProfile, DEMO_BRAND_ID } from "../data/demoBrand"
-import { mockApi } from "../lib/mockApi"
+import { api } from "../lib/api"
 import { directionLabel } from "../lib/fonts"
 import campaignData from "../mock/campaign.json"
 import traceEvents from "../mock/trace.json"
@@ -68,6 +70,7 @@ const DEMO_ASSET = campaignData.campaigns[0].assets[0]
 
 export function Home() {
   const reduce = useReducedMotion()
+  const navigate = useNavigate()
   const [profile, setProfile] = useState(demoProfile)
   const [directions, setDirections] = useState(demoDirections)
   const [activeDirection, setActiveDirection] = useState(0)
@@ -76,11 +79,11 @@ export function Home() {
 
   useEffect(() => {
     let cancelled = false
-    mockApi
+    api
       .getBrand(DEMO_BRAND_ID)
-      .then((live) => !cancelled && setProfile(live))
+      .then((live) => !cancelled && live && setProfile(live))
       .catch(() => {})
-    mockApi
+    api
       .getIdentityDirections(DEMO_BRAND_ID)
       .then((live) => !cancelled && live.length && setDirections(live))
       .catch(() => {})
@@ -132,7 +135,12 @@ export function Home() {
               Tell us about the business. We draft a complete brand identity, then remember every rule
               added to it afterward.
             </p>
-            <div className="mt-8 flex flex-wrap items-center gap-4">
+            {/* Hero chat — type a goal, go straight into a generated campaign */}
+            <div className="mt-8">
+              <AskBar onSubmit={(goal) => navigate("/workspace", { state: { goal } })} />
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center gap-4">
               <Button to="/onboarding">Get started</Button>
               <Button to={`/brand/${DEMO_BRAND_ID}`} variant="secondary">
                 See a live brand

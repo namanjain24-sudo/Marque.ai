@@ -1,8 +1,9 @@
+from datetime import datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
-from knobs import KNOB_VALUES, OVERLAY_RANGE
+from knobs import ACCENT_RANGE, KNOB_VALUES, OVERLAY_RANGE
 
 # Reusable, bounded string types for public-facing input. Business identity
 # fields (name/category) are stripped and must be non-empty after stripping;
@@ -165,18 +166,20 @@ class BrandMemoryPatch(BaseModel):
 DensityT = Literal[tuple(KNOB_VALUES["density"])]
 FontStyleT = Literal[tuple(KNOB_VALUES["font_style"])]
 PhotoToneT = Literal[tuple(KNOB_VALUES["photo_tone"])]
-AccentUsageT = Literal[tuple(KNOB_VALUES["accent_usage"])]
 LayoutVariantT = Literal[tuple(KNOB_VALUES["layout_variant"])]
 
 
 class FixKnobs(BaseModel):
     """Style knobs the fix loop is allowed to change (PRD 9.3 / Table 14). All
-    optional - the critic only suggests the knobs it has an opinion on."""
+    optional - the critic only suggests the knobs it has an opinion on.
+
+    `accent_usage` and `overlay` are continuous (0-1 / 0-0.8) because that's how
+    the renderer (AssetPreview) consumes them; the rest are closed enums."""
 
     density: DensityT | None = None
     font_style: FontStyleT | None = None
     photo_tone: PhotoToneT | None = None
-    accent_usage: AccentUsageT | None = None
+    accent_usage: float | None = Field(default=None, ge=ACCENT_RANGE[0], le=ACCENT_RANGE[1])
     overlay: float | None = Field(default=None, ge=OVERLAY_RANGE[0], le=OVERLAY_RANGE[1])
     layout_variant: LayoutVariantT | None = None
 
@@ -220,3 +223,139 @@ class SignalResult(BaseModel):
     issue: str
     evidence: list[str]
     fix: FixKnobs
+
+
+# --- F5 (light): asset generation + campaigns (PRD Section 7 F5) ---
+
+
+class AssetKnobs(BaseModel):
+    """The full style-knob set for a rendered asset. Same vocabulary as FixKnobs
+    but all fields are required (with sensible defaults) — an asset always has a
+    concrete value for every knob, whereas FixKnobs is a sparse suggested delta.
+    Matches what AssetPreview.jsx reads."""
+
+    density: DensityT = "balanced"
+    font_style: FontStyleT = "display_bold"
+    photo_tone: PhotoToneT = "warm"
+    accent_usage: float = Field(default=0.6, ge=ACCENT_RANGE[0], le=ACCENT_RANGE[1])
+    overlay: float = Field(default=0.4, ge=OVERLAY_RANGE[0], le=OVERLAY_RANGE[1])
+    layout_variant: LayoutVariantT = "left"
+
+
+class AssetSlots(BaseModel):
+    """The text/content slots AssetPreview renders. `hero_image` is part of the
+    contract but the renderer currently draws a gradient in its place."""
+
+    headline: str = ""
+    subline: str = ""
+    price: str | None = None
+    cta: str = ""
+    logo: str = ""
+    hero_image: str | None = None
+
+
+class AssetOut(BaseModel):
+    id: str
+    type: Literal["poster", "post", "story", "whatsapp"]
+    label: str
+    size: str
+    signal_match: int | None = None
+    signal_verdict: Literal["pass", "needs_fix"] | None = None
+    slots: AssetSlots
+    knobs: AssetKnobs
+
+
+class CampaignOut(BaseModel):
+    id: str
+    name: str
+    objective: str
+    core_message: str
+    status: str
+    date: str
+    assets: list[AssetOut]
+
+
+class AgentRunIn(BaseModel):
+    """What the hero chat / Workspace AskBar sends: one plain-language goal.
+    A real orchestrator (F7) will later classify intent; for now this always
+    drives deterministic campaign generation."""
+
+    goal: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+
+
+# --- F8 (light): asset library (save-on-check) ---
+
+AssetTypeT = Literal["poster", "post", "story", "whatsapp", "other"]
+
+
+class LibraryAsset(BaseModel):
+    """A saved library asset. Today the only source is an uploaded image that
+    went through Signal Check ('save-on-check'), so `png_url` points at the
+    stored photo and `slots`/`knobs` are null. A future F5-rendered asset would
+    set `source="rendered"` and carry `slots`/`knobs` for AssetPreview's CSS
+    mockup instead of a real image."""
+
+    id: str
+    brand_id: str
+    source: Literal["upload", "rendered"] = "upload"
+    type: AssetTypeT = "other"
+    label: str = ""
+    png_url: str | None = None
+    signal_match: int | None = None
+    signal_verdict: Literal["pass", "needs_fix"] | None = None
+    slots: AssetSlots | None = None
+    knobs: AssetKnobs | None = None
+    created_at: datetime
+
+
+# --- F10: Brand Audit (PRD Section 7 F10, Section 9.5) ---
+
+
+class VisionAuditResponse(BaseModel):
+    """What the vision LLM returns per image for an audit. Extends the Signal
+    Check critic shape with explicit style tags so we can count distinct
+    treatments across images (PRD F10's 'N font styles, M colour treatments').
+    As in F4, the detected positioning is the only thing used for the
+    deterministic consistency score - the model is never trusted for arithmetic."""
+
+    detected: Positioning
+    font_style: FontStyleT
+    photo_tone: PhotoToneT
+    colours: list[Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=30)]] = Field(
+        min_length=1, max_length=4
+    )
+    issue: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
+
+
+class AuditCounts(BaseModel):
+    font_styles: int = Field(ge=0)
+    colour_treatments: int = Field(ge=0)
+    photo_styles: int = Field(ge=0)
+
+
+class AuditIssue(BaseModel):
+    text: str
+    suggested_fix: str
+
+
+class AuditReport(BaseModel):
+    """PRD F10 output: a consistency score, distinct-treatment counts, and the
+    top issues each with a suggested fix. `consistency_score` is computed in
+    code from the per-image positioning spread (our formula - the PRD gives the
+    0-100 range but no formula), not taken from the model."""
+
+    consistency_score: int = Field(ge=0, le=100)
+    summary: str
+    counts: AuditCounts
+    issues: list[AuditIssue] = Field(max_length=3)
+    alerts: list[str] = Field(default_factory=list)
+    image_count: int = Field(ge=2, le=5)
+
+
+class AuditRecord(BaseModel):
+    """A persisted audit, returned by GET /audits (history)."""
+
+    id: str
+    brand_id: str
+    created_at: datetime
+    report: AuditReport

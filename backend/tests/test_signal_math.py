@@ -8,7 +8,16 @@ import pytest
 from pydantic import ValidationError
 
 from schemas import FixKnobs, Positioning, VisionCriticResponse
-from vision import _compute_result
+from vision import _compute_result, apply_fix_knobs
+
+BASE_KNOBS = {
+    "density": "balanced",
+    "font_style": "display_bold",
+    "photo_tone": "warm",
+    "accent_usage": 0.6,
+    "overlay": 0.4,
+    "layout_variant": "left",
+}
 
 
 def _critic(**detected) -> VisionCriticResponse:
@@ -69,10 +78,44 @@ def test_fix_knobs_reject_unknown_values():
     with pytest.raises(ValidationError):
         FixKnobs(density="extreme")
     with pytest.raises(ValidationError):
-        FixKnobs(overlay=0.9)  # PRD 9.3: overlay is 0.0-0.6
+        FixKnobs(overlay=0.9)  # overlay is 0.0-0.8 (AssetPreview range)
+    with pytest.raises(ValidationError):
+        FixKnobs(accent_usage=1.5)  # accent_usage is 0.0-1.0
 
 
 def test_fix_knobs_accept_valid_subset():
-    knobs = FixKnobs(density="low", overlay=0.35)
-    assert knobs.density == "low"
+    knobs = FixKnobs(density="open", overlay=0.35, accent_usage=0.7)
+    assert knobs.density == "open"
+    assert knobs.accent_usage == 0.7
     assert knobs.font_style is None
+
+
+def test_apply_fix_knobs_only_changes_suggested_fields():
+    fix = FixKnobs(font_style="rounded_friendly", photo_tone="cool")
+    result = apply_fix_knobs(BASE_KNOBS, fix)
+    assert result["font_style"] == "rounded_friendly"
+    assert result["photo_tone"] == "cool"
+    # Untouched knobs keep their original values.
+    assert result["density"] == "balanced"
+    assert result["accent_usage"] == 0.6
+    assert result["layout_variant"] == "left"
+
+
+def test_apply_fix_knobs_does_not_mutate_input():
+    fix = FixKnobs(density="open")
+    result = apply_fix_knobs(BASE_KNOBS, fix)
+    assert result["density"] == "open"
+    assert BASE_KNOBS["density"] == "balanced"  # original untouched
+
+
+def test_apply_fix_knobs_empty_fix_is_noop():
+    result = apply_fix_knobs(BASE_KNOBS, FixKnobs())
+    assert result == BASE_KNOBS
+    assert result is not BASE_KNOBS  # still a fresh dict
+
+
+def test_apply_fix_knobs_float_fields_merge():
+    fix = FixKnobs(accent_usage=0.9, overlay=0.7)
+    result = apply_fix_knobs(BASE_KNOBS, fix)
+    assert result["accent_usage"] == 0.9
+    assert result["overlay"] == 0.7

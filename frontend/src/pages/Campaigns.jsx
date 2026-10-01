@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { Container } from "../components/Container"
-import { mockApi } from "../lib/mockApi"
+import { useBrand } from "../hooks/useBrand"
+import { api } from "../lib/api"
 
 const STATUS_STYLE = {
   Ready: "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400",
@@ -10,11 +11,13 @@ const STATUS_STYLE = {
 }
 
 export function Campaigns() {
+  const { brand } = useBrand()
   const [campaigns, setCampaigns] = useState([])
 
   useEffect(() => {
-    mockApi.getCampaigns().then(setCampaigns).catch(() => {})
-  }, [])
+    if (!brand?.id) return
+    api.listCampaigns(brand.id).then(setCampaigns).catch(() => {})
+  }, [brand?.id])
 
   return (
     <div className="py-10">

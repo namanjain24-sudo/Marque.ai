@@ -1,5 +1,6 @@
-// components/AssetPreview.jsx — renders an asset in HTML/CSS only, no image model.
-// Props: type, slots, knobs, palette, fonts
+// components/AssetPreview.jsx — renders an asset. A saved upload (pngUrl) is shown
+// as the real image; an F5-rendered asset (slots/knobs, no image) is drawn in CSS.
+// Props: type, slots, knobs, palette, fonts, pngUrl
 import { useEffect } from 'react'
 import { loadBrandFonts } from '../lib/fonts'
 
@@ -9,6 +10,7 @@ const ASPECT = {
   post: '1 / 1',
   story: '9 / 16',
   whatsapp: '1 / 1',
+  other: '1 / 1',
 }
 
 // CSS gradient placeholder tinted by photo_tone
@@ -28,10 +30,28 @@ function fontFamily(style, fonts) {
   return fonts?.heading ? `'${fonts.heading}', sans-serif` : `'Bebas Neue', sans-serif`
 }
 
-export function AssetPreview({ type = 'poster', slots = {}, knobs = {}, palette, fonts }) {
+export function AssetPreview({ type = 'poster', slots = {}, knobs = {}, palette, fonts, pngUrl }) {
   useEffect(() => {
     loadBrandFonts(fonts)
   }, [fonts])
+
+  // Saved upload: show the real stored image instead of the CSS mockup.
+  if (pngUrl) {
+    return (
+      <img
+        src={pngUrl}
+        alt={slots.headline || 'Saved asset'}
+        style={{
+          aspectRatio: ASPECT[type] ?? '1 / 1',
+          objectFit: 'cover',
+          width: '100%',
+          maxWidth: '360px',
+          margin: '0 auto',
+          display: 'block',
+        }}
+      />
+    )
+  }
 
   const {
     density = 'balanced',

@@ -21,7 +21,15 @@ import httpx
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import ValidationError
 
-from schemas import BrandProfile, Positioning, SignalGaps, SignalResult, VisionCriticResponse
+from schemas import (
+    BrandProfile,
+    FixKnobs,
+    Positioning,
+    SignalGaps,
+    SignalResult,
+    VisionAuditResponse,
+    VisionCriticResponse,
+)
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -74,16 +82,39 @@ this shape:
   "issue": "<one plain-language sentence naming the biggest gap between how this reads and the target, and what causes it>",
   "evidence": ["<short, concrete, visual observation>", "..."],
   "fix": {{
-    "density": "low" | "medium" | "high",
+    "density": "open" | "balanced",
     "font_style": "display_bold" | "serif_elegant" | "rounded_friendly" | "clean_sans",
     "photo_tone": "warm" | "neutral" | "cool" | "dark",
-    "accent_usage": "low" | "medium" | "high",
-    "overlay": <0.0-0.6>,
+    "accent_usage": <0.0-1.0>,
+    "overlay": <0.0-0.8>,
     "layout_variant": "left" | "center" | "split"
   }}
 }}
 Include 1-3 evidence items. In "fix", include only the knobs you'd actually change to close \
 the gap - omit any knob that's already right.
+"""
+
+
+AUDIT_SYSTEM_PROMPT = f"""You are the Brand Audit critic for BrandOS, a brand-identity tool. \
+You are shown ONE of several of a business's existing marketing images. Describe only what \
+this image actually communicates visually - composition, colour, typography, photography, \
+density - so it can be compared against the business's other images and its brand target.
+
+{RUBRIC}
+
+Also tag the image's visual style using this closed vocabulary (pick the single closest value):
+  font_style: "display_bold" | "serif_elegant" | "rounded_friendly" | "clean_sans"
+  photo_tone: "warm" | "neutral" | "cool" | "dark"
+
+Reply with ONLY a single JSON object, no markdown fences, no prose outside it, in exactly \
+this shape:
+{{
+  "detected": {{"premium": <0-100 int>, "modern": <0-100 int>, "playful": <0-100 int>, "niche": <0-100 int>}},
+  "font_style": "<one of the font_style values above>",
+  "photo_tone": "<one of the photo_tone values above>",
+  "colours": ["<1-4 dominant colours, short names or hex>"],
+  "issue": "<one plain-language sentence on the most notable thing about how this image reads>"
+}}
 """
 
 
@@ -108,7 +139,7 @@ MAX_DIMENSION = 1280
 JPEG_QUALITY = 85
 
 
-def _prepare_image(data: bytes) -> tuple[bytes, str]:
+def prepare_image(data: bytes) -> tuple[bytes, str]:
     """Decode, downscale to MAX_DIMENSION, and re-encode as JPEG. Also the
     re-encode PRD Table 21 suggests for uploads generally, and it collapses
     PNG/JPEG/WebP input to one format so the model always sees the same kind
@@ -165,7 +196,17 @@ async def _call_model(client: httpx.AsyncClient, api_key: str, model: str, messa
             "Content-Type": "application/json",
             "X-Title": "Marque.ai",
         },
-        json={"model": model, "messages": messages, "temperature": 0, "max_tokens": 1000},
+        json={
+            "model": model,
+            "messages": messages,
+            "temperature": 0,
+            "max_tokens": 1000,
+            # Force well-formed JSON from the critic. Without this the model
+            # occasionally emits a trailing comma / unquoted key and the whole
+            # check 502s (observed live in prod). Belt-and-suspenders with the
+            # parse-and-retry-once path below.
+            "response_format": {"type": "json_object"},
+        },
         timeout=45,
     )
     if response.status_code != 200:
@@ -197,13 +238,68 @@ def _compute_result(critic: VisionCriticResponse, target: Positioning, round_num
     )
 
 
-async def check_signals(profile: BrandProfile, image_bytes: bytes, round_num: int = 1) -> SignalResult:
+def apply_fix_knobs(current: dict, fix: FixKnobs) -> dict:
+    """Merge the critic's sparse suggested knobs over an asset's current knobs,
+    returning a new dict (the F4 fix loop's 'revise style knobs' step). Only the
+    knobs the critic actually set are changed; floats are clamped to their valid
+    renderer ranges so a suggestion can never push a knob out of bounds.
+
+    This is the backend's canonical merge; the frontend mirrors the same logic
+    in lib/signal.js so it can re-render round 2 without a round-trip. Kept here
+    too so the loop is testable server-side and a future server-side renderer
+    reuses it.
+    """
+    from knobs import ACCENT_RANGE, OVERLAY_RANGE
+
+    updated = dict(current)
+    for field, value in fix.model_dump(exclude_none=True).items():
+        if field == "accent_usage":
+            value = max(ACCENT_RANGE[0], min(ACCENT_RANGE[1], value))
+        elif field == "overlay":
+            value = max(OVERLAY_RANGE[0], min(OVERLAY_RANGE[1], value))
+        updated[field] = value
+    return updated
+
+
+async def _critic_call(client, api_key, model, messages, model_cls):
+    """Call the vision model and validate the reply against `model_cls`, with the
+    PRD Table 13 retry-once-on-bad-JSON path. Shared by check_signals (F4) and
+    analyse_asset (F10) so the reliability scaffolding lives in exactly one place."""
+    raw = await _call_model(client, api_key, model, messages)
+    try:
+        return model_cls(**_parse_json_response(raw))
+    except (json.JSONDecodeError, ValidationError, TypeError) as first_error:
+        # PRD Table 13: "Invalid JSON from LLM -> validate with schema,
+        # retry once with the error message."
+        messages.append({"role": "assistant", "content": raw})
+        messages.append(
+            {
+                "role": "user",
+                "content": (
+                    f"That reply was invalid: {first_error}. "
+                    "Reply again with ONLY the corrected JSON object, no markdown fences, no prose."
+                ),
+            }
+        )
+        raw_retry = await _call_model(client, api_key, model, messages)
+        try:
+            return model_cls(**_parse_json_response(raw_retry))
+        except (json.JSONDecodeError, ValidationError, TypeError) as second_error:
+            raise VisionCheckError(f"Vision critic returned unusable output twice: {second_error}") from second_error
+
+
+def _api_key_and_model() -> tuple[str, str]:
     api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
         raise VisionNotConfiguredError("OPENROUTER_API_KEY is not configured")
     model = os.environ.get("OPENROUTER_SIGNAL_MODEL", "qwen/qwen3-vl-32b-instruct")
+    return api_key, model
 
-    resized_bytes, resized_mime = _prepare_image(image_bytes)
+
+async def check_signals(profile: BrandProfile, image_bytes: bytes, round_num: int = 1) -> SignalResult:
+    api_key, model = _api_key_and_model()
+
+    resized_bytes, resized_mime = prepare_image(image_bytes)
     image_b64 = base64.b64encode(resized_bytes).decode("ascii")
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -211,28 +307,24 @@ async def check_signals(profile: BrandProfile, image_bytes: bytes, round_num: in
     ]
 
     async with httpx.AsyncClient() as client:
-        raw = await _call_model(client, api_key, model, messages)
-        try:
-            parsed = _parse_json_response(raw)
-            critic = VisionCriticResponse(**parsed)
-        except (json.JSONDecodeError, ValidationError, TypeError) as first_error:
-            # PRD Table 13: "Invalid JSON from LLM -> validate with schema,
-            # retry once with the error message."
-            messages.append({"role": "assistant", "content": raw})
-            messages.append(
-                {
-                    "role": "user",
-                    "content": (
-                        f"That reply was invalid: {first_error}. "
-                        "Reply again with ONLY the corrected JSON object, no markdown fences, no prose."
-                    ),
-                }
-            )
-            raw_retry = await _call_model(client, api_key, model, messages)
-            try:
-                parsed = _parse_json_response(raw_retry)
-                critic = VisionCriticResponse(**parsed)
-            except (json.JSONDecodeError, ValidationError, TypeError) as second_error:
-                raise VisionCheckError(f"Vision critic returned unusable output twice: {second_error}") from second_error
+        critic = await _critic_call(client, api_key, model, messages, VisionCriticResponse)
 
     return _compute_result(critic, profile.positioning, round_num)
+
+
+async def analyse_asset(profile: BrandProfile, image_bytes: bytes) -> VisionAuditResponse:
+    """F10 — per-image style read for a brand audit. Same reliability scaffolding
+    as check_signals (temperature 0, fixed rubric, schema validation + retry),
+    but the model also tags font_style / photo_tone / dominant colours so the
+    audit can count distinct treatments across images."""
+    api_key, model = _api_key_and_model()
+
+    resized_bytes, resized_mime = prepare_image(image_bytes)
+    image_b64 = base64.b64encode(resized_bytes).decode("ascii")
+    messages = [
+        {"role": "system", "content": AUDIT_SYSTEM_PROMPT},
+        {"role": "user", "content": _build_user_content(profile, image_b64, resized_mime)},
+    ]
+
+    async with httpx.AsyncClient() as client:
+        return await _critic_call(client, api_key, model, messages, VisionAuditResponse)

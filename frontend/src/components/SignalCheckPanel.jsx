@@ -50,6 +50,7 @@ export function SignalCheckPanel({ brandId }) {
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [saveState, setSaveState] = useState("idle") // idle | saving | saved
 
   function pickFile(e) {
     const picked = e.target.files?.[0]
@@ -57,6 +58,7 @@ export function SignalCheckPanel({ brandId }) {
     setFile(picked)
     setResult(null)
     setError(null)
+    setSaveState("idle")
     setPreviewUrl(URL.createObjectURL(picked))
   }
 
@@ -64,6 +66,7 @@ export function SignalCheckPanel({ brandId }) {
     if (!file) return
     setLoading(true)
     setError(null)
+    setSaveState("idle")
     try {
       const res = await api.checkSignal(brandId, file)
       setResult(res)
@@ -71,6 +74,18 @@ export function SignalCheckPanel({ brandId }) {
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function saveToLibrary() {
+    if (!file || saveState === "saving") return
+    setSaveState("saving")
+    try {
+      await api.saveAsset(brandId, file, "other")
+      setSaveState("saved")
+    } catch (err) {
+      setError(err.message)
+      setSaveState("idle")
     }
   }
 
@@ -122,20 +137,30 @@ export function SignalCheckPanel({ brandId }) {
                 <p className="font-mono text-2xl text-zinc-900 dark:text-zinc-50">
                   Match <span className="font-semibold">{result.match}</span> / 100
                 </p>
-                <span
-                  className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold ${
-                    result.verdict === "pass"
-                      ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400"
-                      : "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400"
-                  }`}
-                >
-                  {result.verdict === "pass" ? (
-                    <CheckCircle size={14} weight="bold" />
-                  ) : (
-                    <WarningCircle size={14} weight="bold" />
-                  )}
-                  {result.verdict === "pass" ? "Pass" : "Needs fix"}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={saveToLibrary}
+                    disabled={saveState !== "idle"}
+                    className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:border-zinc-400 disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-300"
+                  >
+                    {saveState === "saved" ? "Saved ✓" : saveState === "saving" ? "Saving…" : "Save to library"}
+                  </button>
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold ${
+                      result.verdict === "pass"
+                        ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400"
+                        : "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400"
+                    }`}
+                  >
+                    {result.verdict === "pass" ? (
+                      <CheckCircle size={14} weight="bold" />
+                    ) : (
+                      <WarningCircle size={14} weight="bold" />
+                    )}
+                    {result.verdict === "pass" ? "Pass" : "Needs fix"}
+                  </span>
+                </div>
               </div>
 
               <div className="mt-5 grid gap-4 sm:grid-cols-2 sm:gap-x-8">

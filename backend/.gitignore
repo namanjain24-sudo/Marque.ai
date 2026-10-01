@@ -8,3 +8,7 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Uploaded media (keep the dir, ignore its contents)
+media/*
+!media/.gitkeep
