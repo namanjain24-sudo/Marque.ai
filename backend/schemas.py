@@ -93,6 +93,22 @@ class BrandProfile(BaseModel):
     _check_meaning = field_validator("meaning")(_validate_meaning)
 
 
+class BrandDNAProposal(BaseModel):
+    """P1 — the qualitative Brand DNA an LLM (or the heuristic fallback) proposes
+    at onboarding. The LLM is trusted ONLY for these judgment fields; palette and
+    fonts stay F3's curated-template job (SPEC-P1 §3), and every field is held to
+    the SAME caps as hand-entered Brand Memory so the model can't exceed the app's
+    own limits (bounded strings, list sizes, 0-100 positioning)."""
+
+    positioning: Positioning
+    do: list[RuleStr] = Field(min_length=1, max_length=MAX_LIST_ITEMS)
+    dont: list[RuleStr] = Field(min_length=1, max_length=MAX_LIST_ITEMS)
+    tone: ShortStr
+    meaning: dict[str, str] = Field(default_factory=dict)
+
+    _check_meaning = field_validator("meaning")(_validate_meaning)
+
+
 class BrandCreate(BaseModel):
     """What the owner provides at onboarding (F1). Everything else is filled in later."""
 
@@ -281,6 +297,20 @@ class AgentRunIn(BaseModel):
     drives deterministic campaign generation."""
 
     goal: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+
+
+class CreativeCore(BaseModel):
+    """P2 — the on-brand copy an LLM (or the regex fallback) writes from a goal +
+    the full brand profile. The model writes WORDS only; the price badge, CTA per
+    channel, and style knobs are filled deterministically in Python. Crucially the
+    model never sets a price — the facts rule (SPEC Phase 2): offers/amounts come
+    only from the owner's goal, never invented by the model.
+
+    Fields are bounded so model output can't exceed what the renderer/slots hold."""
+
+    headline: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+    subline: Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)] = ""
+    core_message: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)] = ""
 
 
 # --- F8 (light): asset library (save-on-check) ---

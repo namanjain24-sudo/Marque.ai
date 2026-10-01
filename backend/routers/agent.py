@@ -61,7 +61,7 @@ async def agent_run(brand_id: str, payload: AgentRunIn, session: AsyncSession = 
 
     profile = BrandProfile(**brand.profile_json)
     today = utcnow().date().isoformat()
-    campaign_data = generate_campaign(profile, payload.goal, today=today)
+    campaign_data = await generate_campaign(profile, payload.goal, today=today)
 
     campaign = Campaign(
         id=campaign_data["id"],

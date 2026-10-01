@@ -191,7 +191,14 @@ def _parse_json_response(text: str) -> dict:
     return json.loads(cleaned)
 
 
-async def _call_model(client: httpx.AsyncClient, api_key: str, model: str, messages: list[dict]) -> str:
+async def _call_model(
+    client: httpx.AsyncClient,
+    api_key: str,
+    model: str,
+    messages: list[dict],
+    *,
+    max_tokens: int = 1000,
+) -> str:
     try:
         response = await client.post(
             OPENROUTER_URL,
@@ -204,7 +211,7 @@ async def _call_model(client: httpx.AsyncClient, api_key: str, model: str, messa
                 "model": model,
                 "messages": messages,
                 "temperature": 0,
-                "max_tokens": 1000,
+                "max_tokens": max_tokens,
                 # Force well-formed JSON from the critic. Without this the model
                 # occasionally emits a trailing comma / unquoted key and the whole
                 # check 502s (observed live in prod). Belt-and-suspenders with the

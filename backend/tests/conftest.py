@@ -10,6 +10,7 @@ os.environ.setdefault(
 )
 
 import asyncpg
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
@@ -48,6 +49,17 @@ async def _clean_tables():
             text("TRUNCATE brands, campaigns, assets, products, audits, runs RESTART IDENTITY CASCADE")
         )
     yield
+
+
+@pytest.fixture(autouse=True)
+def _no_llm_key_by_default(monkeypatch):
+    """Zero-credit default: the LLM paths (Brand DNA at onboarding, the F5
+    copywriter, Signal Check) all auto-switch on OPENROUTER_API_KEY. Unless a
+    test explicitly opts into the LLM path by setting a fake key AND mocking the
+    HTTP call, every test runs the deterministic heuristic/fallback — so a real
+    key in the developer's environment can never make a test spend money or hit
+    the network. Tests that want the LLM path re-set the key themselves."""
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
 
 
 @pytest_asyncio.fixture

@@ -1,22 +1,28 @@
-"""F5 (light) — deterministic asset generation.
+"""F5 (light) — asset generation (P2: real LLM copy behind the seam).
 
 Turns a brand profile + a one-line goal into a campaign of 4 assets (poster,
 Instagram post, story, WhatsApp creative), each with text `slots` and style
-`knobs`. Same philosophy as brand_dna.py / identity.py: pure Python heuristics,
-no LLM call, so it's instant and works offline. A text-LLM copy pass can be
-dropped in later behind the same function signature ("we'll build the agent
-eventually") without changing the contract.
+`knobs`.
 
-The `slots` + `knobs` shapes match exactly what the frontend renderer
-(`AssetPreview.jsx`) consumes, because the browser is the renderer here. Knob
-values come from `knobs.py` (the single source of truth, reconciled with the
-renderer).
+Copy (headline/subline/core_message) comes from the LLM copywriter when a key is
+present (copywriter_llm.py), reading the brand's voice + do/dont rules; otherwise
+from the deterministic regex headline below. Either path yields the same `slots`
+shape, so the renderer and persistence don't change.
+
+The facts rule: price/discount/dates are ALWAYS extracted from the owner's goal
+in Python (`_extract_price`) — never written or invented by the model. `knobs`
+stay deterministic (derived from positioning). The browser is the renderer, so
+these shapes match exactly what `AssetPreview.jsx` consumes; knob values come
+from `knobs.py` (the single source of truth).
 """
 
+import logging
 import re
 
 from models import new_id
-from schemas import BrandProfile
+from schemas import BrandProfile, CreativeCore
+
+logger = logging.getLogger(__name__)
 
 # Per-format metadata the frontend expects (label + canonical export size).
 FORMATS = [
@@ -137,16 +143,50 @@ def _slots_for(fmt: str, brand: BrandProfile, headline: str, price: str | None, 
     }
 
 
-def generate_campaign(brand: BrandProfile, goal: str, *, today: str) -> dict:
+def _heuristic_core(brand: BrandProfile, goal: str) -> CreativeCore:
+    """The deterministic regex copy — the default and the LLM fallback. Writes
+    WORDS only; price is added separately so this never embeds a number."""
+    headline = _headline(goal, brand)
+    subline = "This week only" if "week" in goal.lower() else brand.category
+    core_message = ". ".join(part for part in (headline, "Limited time") if part)
+    return CreativeCore(headline=headline, subline=subline, core_message=core_message)
+
+
+async def _creative_core(brand: BrandProfile, goal: str) -> tuple[CreativeCore, str]:
+    """Copy switch (same seam as P1): LLM when a key is present, else/on failure
+    the regex heuristic. Returns (core, source) where source is 'llm'|'heuristic'
+    — logged, not exposed. Never raises: a copy failure degrades to the heuristic
+    so campaign generation always succeeds."""
+    from copywriter_llm import CopywriterError, CopywriterNotConfigured, write_creative_core
+
+    try:
+        core = await write_creative_core(brand, goal)
+        logger.info("Campaign copy written via LLM for %r", brand.name)
+        return core, "llm"
+    except CopywriterNotConfigured:
+        return _heuristic_core(brand, goal), "heuristic"
+    except CopywriterError as exc:
+        logger.warning("Copywriter LLM failed (%s); falling back to regex for %r", exc, brand.name)
+        return _heuristic_core(brand, goal), "heuristic"
+
+
+async def generate_campaign(brand: BrandProfile, goal: str, *, today: str) -> dict:
     """Build a full campaign dict matching the frontend's campaign contract
     (id, name, objective, core_message, status, date, assets[]). `today` is
     passed in (ISO date string) rather than read from the clock so the function
-    stays pure/testable."""
+    stays pure/testable.
+
+    Copy comes from the LLM (or regex fallback); the price badge is extracted
+    from the goal in Python and appended to subline/core_message here — the model
+    never supplies a number (the facts rule)."""
     price = _extract_price(goal)
-    headline = _headline(goal, brand)
-    subline_bits = [b for b in ("This week only" if "week" in goal.lower() else None, price) if b]
-    subline = " · ".join(subline_bits) if subline_bits else brand.category
-    core_message = ". ".join(part for part in (headline, price, "Limited time") if part)
+    core, _copy_source = await _creative_core(brand, goal)
+    headline = core.headline
+
+    # Inject the Python-extracted price into the supporting copy. The model's
+    # subline/core_message carry NO figures; we append the owner's own price.
+    subline = " · ".join(b for b in (core.subline or brand.category, price) if b)
+    core_message = ". ".join(part for part in (core.core_message, price) if part) or headline
 
     base = _base_knobs(brand)
     assets = []

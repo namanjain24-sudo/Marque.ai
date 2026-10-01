@@ -1,14 +1,24 @@
 """F1 — Brand Onboarding + Brand DNA (PRD Section 7, F1).
 
-Deterministic defaults the agent proposes when a brand is first created:
-4 positioning slider values and 3 do/dont rules. No LLM call is needed for
-this path, so onboarding always completes well under the 30s acceptance
-target regardless of API availability.
+Two paths, selected automatically by `propose_brand_dna` (SPEC-P1):
 
-A vision-LLM-based version of this (reading a website URL, logo or
-screenshots per the PRD) is not implemented yet — it needs an LLM API key.
-See PROGRESS.md.
+- **Heuristic (always available, offline, instant):** the deterministic lookup
+  tables below propose 4 positioning values, 3 do/dont rules and a tone. This is
+  the default and the fallback — onboarding always completes well under the 30s
+  acceptance target regardless of API availability.
+- **LLM (when OPENROUTER_API_KEY is set):** `brand_dna_llm.py` proposes real
+  per-brand DNA via one text call. If it fails for any reason we swallow the
+  error and return the heuristic result — the AI can never fail onboarding.
+
+The LLM path is trusted only for the qualitative fields; palette/fonts stay F3's
+curated-template job (see routers/brands.py).
 """
+
+import logging
+
+from schemas import BrandDNAProposal, Positioning
+
+logger = logging.getLogger(__name__)
 
 PERSONALITY_AXIS_HINTS: dict[str, dict[str, int]] = {
     "premium": {"premium": 25, "playful": -10},
@@ -97,3 +107,61 @@ def propose_tone(personality: list[str]) -> str:
     if not descriptors:
         descriptors = ["short", "clear"]
     return ", ".join(descriptors[:3]) + ", no corporate words"
+
+
+def _heuristic_dna(personality: list[str], price_level: int) -> BrandDNAProposal:
+    """Assemble the deterministic Brand DNA from the lookup-table functions above.
+    Always succeeds, offline and instant — the default path and the LLM fallback."""
+    do, dont = propose_do_dont(price_level)
+    return BrandDNAProposal(
+        positioning=Positioning(**propose_positioning(personality, price_level)),
+        do=do,
+        dont=dont,
+        tone=propose_tone(personality),
+        meaning={},
+    )
+
+
+async def propose_brand_dna(
+    *,
+    name: str,
+    category: str,
+    city: str | None,
+    audience: str | None,
+    price_level: int,
+    personality: list[str],
+    products: list[str],
+) -> tuple[BrandDNAProposal, str]:
+    """The single DNA entry point onboarding calls (SPEC-P1 §5).
+
+    Returns `(proposal, source)` where source is "llm" or "heuristic" — kept
+    internal (logged, used by tests), not exposed in the API response.
+
+    Auto-switch: if a key is present, try the LLM once (with its own retry-once);
+    on ANY failure fall back to the heuristic. If no key, heuristic directly.
+    Onboarding must never fail because of the AI.
+    """
+    # Imported lazily so the heuristic path (and its tests) never import httpx
+    # or touch the LLM module.
+    from brand_dna_llm import BrandDNAError, BrandDNANotConfigured, _call_dna_model
+
+    try:
+        proposal = await _call_dna_model(
+            name=name,
+            category=category,
+            city=city,
+            audience=audience,
+            price_level=price_level,
+            personality=personality,
+            products=products,
+        )
+        logger.info("Brand DNA proposed via LLM for %r", name)
+        return proposal, "llm"
+    except BrandDNANotConfigured:
+        # Expected when no key is set — the default, not an error worth logging loudly.
+        return _heuristic_dna(personality, price_level), "heuristic"
+    except BrandDNAError as exc:
+        # The LLM was configured but couldn't produce valid DNA — log and fall back,
+        # never 500 the onboarding.
+        logger.warning("Brand DNA LLM failed (%s); falling back to heuristic for %r", exc, name)
+        return _heuristic_dna(personality, price_level), "heuristic"
